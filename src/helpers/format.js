@@ -1,0 +1,270 @@
+const { v4: uuidv4 } = require('uuid');
+
+// ---------------------------------------------------------------------------
+// ID generation
+// ---------------------------------------------------------------------------
+
+/** Generate a prefixed ID like `chatcmpl-abc123...` */
+const newId = (prefix) => `${prefix}-${uuidv4().replace(/-/g, '')}`;
+
+// ---------------------------------------------------------------------------
+// Content extraction
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract plain text from a qodercli message object.
+ * Handles both array-of-parts and plain string content gracefully.
+ */
+const extractTextContent = (message) => {
+  if (!message) return '';
+  if (Array.isArray(message.content)) {
+    return message.content
+      .filter((part) => part.type === 'text')
+      .map((part) => part.text)
+      .join('');
+  }
+  return message.content || '';
+};
+
+// ---------------------------------------------------------------------------
+// Model catalogue
+// ---------------------------------------------------------------------------
+
+/**
+ * Full catalogue of qodercli models.
+ *
+ * `id`          — the exact value to pass to `--model`
+ * `label`       — human-readable display name
+ * `tier`        — 'free' | 'paid' | 'new'
+ * `description` — brief explanation shown in /v1/models
+ */
+const QODER_MODELS = [
+  // ── Tiered models ────────────────────────────────────────────────────────
+  {
+    id: 'lite',
+    label: 'Lite',
+    tier: 'free',
+    description: 'Free tier — fast, lightweight model for everyday tasks.',
+  },
+  {
+    id: 'efficient',
+    label: 'Efficient',
+    tier: 'paid',
+    description: 'Paid tier — optimised for speed and cost efficiency.',
+  },
+  {
+    id: 'auto',
+    label: 'Auto',
+    tier: 'paid',
+    description: 'Paid tier — automatically selects the best model per task (default for paid plans).',
+  },
+  {
+    id: 'performance',
+    label: 'Performance',
+    tier: 'paid',
+    description: 'Paid tier — high-performance model for demanding tasks.',
+  },
+  {
+    id: 'ultimate',
+    label: 'Ultimate',
+    tier: 'paid',
+    description: 'Paid tier — top-tier model, maximum quality.',
+  },
+  // ── New / frontier models ─────────────────────────────────────────────────
+  {
+    id: 'qmodel',
+    label: 'Qwen',
+    tier: 'new',
+    description: 'New model — Qwen series (Alibaba).',
+  },
+  {
+    id: 'q35model',
+    label: 'Qwen 3.5',
+    tier: 'new',
+    description: 'New model — Qwen 3.5 (Alibaba).',
+  },
+  {
+    id: 'gmodel',
+    label: 'GLM',
+    tier: 'new',
+    description: 'New model — GLM series (Zhipu AI).',
+  },
+  {
+    id: 'kmodel',
+    label: 'Kimi',
+    tier: 'new',
+    description: 'New model — Kimi (Moonshot AI).',
+  },
+  {
+    id: 'mmodel',
+    label: 'MiniMax',
+    tier: 'new',
+    description: 'New model — MiniMax.',
+  },
+];
+
+/** Quick lookup: qodercli model id → catalogue entry */
+const QODER_MODEL_BY_ID = Object.fromEntries(QODER_MODELS.map((m) => [m.id, m]));
+
+/**
+ * OpenAI-name → qodercli model id aliases.
+ *
+ * Mapping philosophy:
+ *   - gpt-4o / gpt-4 class  → 'auto'  (best balanced paid tier)
+ *   - gpt-4o-mini / 3.5     → 'lite'  (lightweight free tier)
+ *   - claude-3.5-sonnet      → 'auto'
+ *   - claude-3-haiku         → 'lite'
+ *   - Direct qodercli names pass through unchanged.
+ */
+const ALIAS_MAP = {
+  // GPT-4 class → auto tier
+  'gpt-4':              'auto',
+  'gpt-4-turbo':        'auto',
+  'gpt-4o':             'auto',
+  'o1':                 'ultimate',
+  'o1-mini':            'performance',
+  'o3-mini':            'performance',
+  // Lightweight → lite
+  'gpt-4o-mini':        'lite',
+  'gpt-3.5-turbo':      'lite',
+  // Claude aliases
+  'claude-3-opus':      'ultimate',
+  'claude-3-sonnet':    'performance',
+  'claude-3-haiku':     'lite',
+  'claude-3.5-sonnet':  'auto',
+  'claude-3.5-haiku':   'efficient',
+  'claude-3.7-sonnet':  'auto',
+  // Gemini aliases
+  'gemini-pro':         'performance',
+  'gemini-flash':       'efficient',
+  // Friendly names for "new model" tier
+  'qwen':               'qmodel',
+  'qwen-3.5':           'q35model',
+  'glm':                'gmodel',
+  'kimi':               'kmodel',
+  'minimax':            'mmodel',
+};
+
+/**
+ * Resolve an OpenAI model name (or any alias) to a qodercli --model value.
+ * Unknown names are passed through as-is so users can still try custom model IDs.
+ */
+const getModelMapping = (requestedModel) => {
+  if (!requestedModel) return 'lite';
+  // Direct qodercli model id — already valid
+  if (QODER_MODEL_BY_ID[requestedModel]) return requestedModel;
+  // OpenAI / alias lookup
+  return ALIAS_MAP[requestedModel] ?? requestedModel;
+};
+
+// ---------------------------------------------------------------------------
+// Message → prompt conversion
+// ---------------------------------------------------------------------------
+
+/**
+ * Convert an OpenAI messages array into a single prompt string.
+ *
+ * - `system` messages are prepended as "System: ..."
+ * - `user` / `assistant` turns are interleaved in order
+ * - Multi-part content (array of {type, text}) is flattened to text
+ *
+ * This preserves full conversation history so qodercli gets proper context.
+ */
+const messagesToPrompt = (messages) => {
+  let systemPart = null;
+  const turns = [];
+
+  for (const msg of messages) {
+    // Flatten content: may be a string or [{type:'text', text:'...'}]
+    const raw = Array.isArray(msg.content)
+      ? msg.content.filter((p) => p.type === 'text').map((p) => p.text).join('')
+      : msg.content || '';
+
+    if (!raw.trim()) continue;
+
+    if (msg.role === 'system') {
+      // Only one system message — last one wins if multiple provided
+      systemPart = raw.trim();
+    } else if (msg.role === 'user') {
+      turns.push(`User: ${raw.trim()}`);
+    } else if (msg.role === 'assistant') {
+      turns.push(`Assistant: ${raw.trim()}`);
+    }
+  }
+
+  const parts = [];
+  if (systemPart) parts.push(`System: ${systemPart}`);
+  parts.push(...turns);
+
+  return parts.join('\n\n');
+};
+
+// ---------------------------------------------------------------------------
+// Response builders — chat completions
+// ---------------------------------------------------------------------------
+
+const buildStreamChunk = (content, model, id) => ({
+  id,
+  object: 'chat.completion.chunk',
+  created: Math.floor(Date.now() / 1000),
+  model,
+  choices: [{ index: 0, delta: { role: 'assistant', content }, finish_reason: null }],
+});
+
+const buildDoneChunk = (model, id, finishReason = 'stop') => ({
+  id,
+  object: 'chat.completion.chunk',
+  created: Math.floor(Date.now() / 1000),
+  model,
+  choices: [{ index: 0, delta: {}, finish_reason: finishReason }],
+});
+
+const buildFullChatResponse = (content, model, finishReason, id) => ({
+  id,
+  object: 'chat.completion',
+  created: Math.floor(Date.now() / 1000),
+  model,
+  choices: [
+    {
+      index: 0,
+      message: { role: 'assistant', content },
+      finish_reason: finishReason || 'stop',
+    },
+  ],
+  usage: { prompt_tokens: null, completion_tokens: null, total_tokens: null },
+});
+
+// ---------------------------------------------------------------------------
+// Response builders — legacy text completions
+// ---------------------------------------------------------------------------
+
+const buildCompletionStreamChunk = (text, model, id) => ({
+  id,
+  object: 'text_completion_chunk',
+  created: Math.floor(Date.now() / 1000),
+  model,
+  choices: [{ index: 0, text, finish_reason: null }],
+});
+
+const buildFullCompletionResponse = (text, model, finishReason, id) => ({
+  id,
+  object: 'text_completion',
+  created: Math.floor(Date.now() / 1000),
+  model,
+  choices: [{ index: 0, text, finish_reason: finishReason || 'stop' }],
+  usage: { prompt_tokens: null, completion_tokens: null, total_tokens: null },
+});
+
+module.exports = {
+  newId,
+  extractTextContent,
+  getModelMapping,
+  messagesToPrompt,
+  buildStreamChunk,
+  buildDoneChunk,
+  buildFullChatResponse,
+  buildCompletionStreamChunk,
+  buildFullCompletionResponse,
+  // Model catalogue — used by /v1/models endpoint
+  QODER_MODELS,
+};

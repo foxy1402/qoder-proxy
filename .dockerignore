@@ -1,0 +1,11 @@
+node_modules
+.env
+.env.*
+!.env.example
+*.log
+.git
+.github
+test-*.py
+test-*.ps1
+README.md
+LICENSE
