@@ -39,6 +39,12 @@ router.get('/', (req, res) => {
 router.post('/', (req, res) => {
   const { messages, model: requestedModel, stream = false, temperature, max_tokens, tools, tool_choice } = req.body || {};
 
+  // Log IDE/client info for debugging
+  const userAgent = req.headers['user-agent'] || 'unknown';
+  if (userAgent.includes('Continue') || userAgent.includes('Zed') || userAgent.includes('Cursor')) {
+    console.log('[IDE Request]', userAgent, 'stream:', stream, 'model:', requestedModel);
+  }
+
   // Validate messages
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({
@@ -67,6 +73,21 @@ router.post('/', (req, res) => {
 
   if (stream) {
     setSSEHeaders(res);
+    
+    // Send initial empty delta immediately to establish SSE stream (required for IDE tools)
+    const initialChunk = {
+      id,
+      object: 'chat.completion.chunk',
+      created: Math.floor(Date.now() / 1000),
+      model,
+      choices: [{
+        index: 0,
+        delta: { role: 'assistant', content: '' },
+        finish_reason: null
+      }]
+    };
+    res.write(`data: ${JSON.stringify(initialChunk)}\n\n`);
+    
     let lastFinishReason = 'stop';
 
     const child = runQoderRequest({

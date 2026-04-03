@@ -36,6 +36,21 @@ router.post('/', (req, res) => {
 
   if (stream) {
     setSSEHeaders(res);
+    
+    // Send initial empty chunk immediately (required for IDE tools)
+    const initialChunk = {
+      id,
+      object: 'text_completion',
+      created: Math.floor(Date.now() / 1000),
+      model,
+      choices: [{
+        text: '',
+        index: 0,
+        logprobs: null,
+        finish_reason: null
+      }]
+    };
+    res.write(`data: ${JSON.stringify(initialChunk)}\n\n`);
 
     const child = runQoderRequest({
       prompt,
