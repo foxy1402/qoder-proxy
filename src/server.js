@@ -16,8 +16,20 @@ const app = express();
 
 // ── Global middleware ────────────────────────────────────────────────────────
 app.use(cors({ origin: CORS_ORIGIN }));
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));  // Increase body size limit
+app.use(express.urlencoded({ extended: true }));  // Support URL-encoded bodies
 app.use(logger);
+
+// Debug middleware - log ALL requests to v1 endpoints
+app.use('/v1', (req, res, next) => {
+  console.log(`[V1 Request] ${req.method} ${req.originalUrl}`);
+  console.log(`[V1 Request] Content-Type: ${req.headers['content-type']}`);
+  console.log(`[V1 Request] Body present: ${!!req.body && Object.keys(req.body).length > 0}`);
+  if (req.body && Object.keys(req.body).length > 0) {
+    console.log(`[V1 Request] Body keys: ${Object.keys(req.body).join(', ')}`);
+  }
+  next();
+});
 
 // ── Public routes ────────────────────────────────────────────────────────────
 app.get('/', (_req, res) => res.json({
@@ -39,6 +51,18 @@ app.use('/v1', authMiddleware);
 app.use('/v1/chat/completions', chatRouter);
 app.use('/v1/completions', completionsRouter);
 app.use('/v1', v1Router);
+
+// ── Global error handler ─────────────────────────────────────────────────────
+app.use((err, req, res, next) => {
+  console.error('[Global Error Handler]', err.stack || err);
+  res.status(500).json({
+    error: {
+      message: err.message || 'Internal server error',
+      type: 'server_error',
+      stack: process.env.NODE_ENV !== 'production' ? err.stack : undefined
+    }
+  });
+});
 
 // ── Startup ──────────────────────────────────────────────────────────────────
 const start = async () => {

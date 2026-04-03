@@ -23,148 +23,73 @@ const setSSEHeaders = (res) => {
   res.setHeader('X-Accel-Buffering', 'no');
 };
 
-// Smart routing - support GET requests for better client compatibility
+// ── GET handler for client compatibility ────────────────────────────────────
 router.get('/', (req, res) => {
-  // Debug: Log what we're actually receiving
-  console.log('[GET /chat/completions] Query params:', req.query);
-  console.log('[GET /chat/completions] Body:', req.body);
-  console.log('[GET /chat/completions] Headers:', req.headers);
+  console.log('[GET /chat/completions] Query:', req.query);
+  console.log('[GET /chat/completions] User-Agent:', req.headers['user-agent']);
   
-  // Extract parameters from query string, body, or headers
-  const { message, messages, model = 'auto', stream = false, temperature, max_tokens, content, text, prompt: userPrompt } = { 
-    ...req.query, 
-    ...req.body 
-  };
-  
-  let parsedMessages;
-  
-  // Try multiple parameter names that different bots might use
-  const userInput = message || content || text || userPrompt || req.query.q || req.body.content;
-  const messageArray = messages || req.body.messages;
-  
-  if (messageArray) {
-    // Try to parse messages from parameter (JSON string or already parsed)
-    try {
-      if (typeof messageArray === 'string') {
-        parsedMessages = JSON.parse(decodeURIComponent(messageArray));
-      } else {
-        parsedMessages = messageArray;
+  // Return helpful error - OpenAI SDK should use POST
+  return res.status(400).json({
+    error: {
+      message: 'Use POST method for chat completions',
+      type: 'invalid_request_error',
+      help: 'POST /v1/chat/completions with JSON body: {"messages": [...], "model": "auto"}',
+      debug: {
+        receivedMethod: 'GET',
+        expectedMethod: 'POST',
+        userAgent: req.headers['user-agent']
       }
-    } catch (e) {
-      return res.status(400).json({
-        error: {
-          message: 'Invalid messages parameter. Must be valid JSON array.',
-          type: 'invalid_request_error',
-        }
-      });
     }
-  } else if (userInput) {
-    // Simple single message support with various parameter names
-    parsedMessages = [{ role: 'user', content: decodeURIComponent(userInput.toString()) }];
-  } else {
-    // If no recognized parameters, provide helpful debug info
-    return res.status(400).json({
-      error: {
-        message: 'Missing required parameter. Use ?message=your_text or ?messages=[{"role":"user","content":"text"}]',
-        type: 'invalid_request_error',
-        help: 'GET Example: /v1/chat/completions?message=Hello&model=auto',
-        debug: {
-          receivedQuery: req.query,
-          receivedBody: req.body,
-          supportedParams: ['message', 'content', 'text', 'prompt', 'messages', 'q']
-        }
-      }
-    });
-  }
-
-  if (!Array.isArray(parsedMessages) || parsedMessages.length === 0) {
-    return res.status(400).json({
-      error: {
-        message: 'messages must be a non-empty array',
-        type: 'invalid_request_error',
-      },
-    });
-  }
-
-  const mappedModel = getModelMapping(model);
-  const prompt = messagesToPrompt(parsedMessages);
-  const id = newId('chatcmpl');
-
-  const flags = [];
-  if (max_tokens != null) flags.push('--max-tokens', String(max_tokens));
-  if (temperature != null) flags.push('--temperature', String(temperature));
-
-  const isStream = stream === 'true';
-
-  if (isStream) {
-    setSSEHeaders(res);
-    let lastFinishReason = 'stop';
-
-    const child = runQoderRequest({
-      prompt,
-      model: mappedModel,
-      flags,
-      timeoutMs: QODER_TIMEOUT_MS,
-      onChunk: (data) => {
-        const content = extractTextContent(data.message);
-        const finishReason = data.message?.stop_reason || null;
-        
-        if (finishReason) lastFinishReason = finishReason;
-        
-        res.write(`data: ${JSON.stringify(buildStreamChunk(data, mappedModel, id))}\n\n`);
-      },
-      onError: (error) => {
-        res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
-        res.write('data: [DONE]\n\n');
-        res.end();
-      },
-      onEnd: () => {
-        res.write(`data: ${JSON.stringify(buildDoneChunk())}\n\n`);
-        res.write('data: [DONE]\n\n');
-        res.end();
-      },
-    });
-
-    req.on('close', () => child.kill());
-  } else {
-    let fullContent = '';
-    
-    const child = runQoderRequest({
-      prompt,
-      model: mappedModel,
-      flags,
-      timeoutMs: QODER_TIMEOUT_MS,
-      onChunk: (data) => {
-        const content = extractTextContent(data.message);
-        if (content) fullContent += content;
-      },
-      onError: (error) => {
-        res.status(500).json({ error: { message: error.message, type: 'server_error' } });
-      },
-      onEnd: () => {
-        res.json(buildFullChatResponse(id, mappedModel, fullContent));
-      },
-    });
-  }
+  });
 });
 
+// ── POST handler (standard OpenAI-compatible endpoint) ──────────────────────
 router.post('/', (req, res) => {
+  // Debug logging
+  console.log('[POST /chat/completions] Content-Type:', req.headers['content-type']);
+  console.log('[POST /chat/completions] Body keys:', Object.keys(req.body || {}));
+  
+  const { messages, model: requestedModel, stream = false, temperature, max_tokens, tools, tool_choice } = req.body || {};
+
+  // Validate messages
+  if (!messages || !Array.isArray(messages) || messages.length === 0) {
+    return res.status(400).json({
+      error: {
+        message: 'messages is required and must be a non-empty array',
+        type: 'invalid_request_error',
+        debug: {
+          receivedBody: req.body,
+          bodyType: typeof req.body,
+          contentType: req.headers['content-type']
+        }
+      },
+    });
+  }
 
   const model = getModelMapping(requestedModel);
   const prompt = messagesToPrompt(messages);
   const id = newId('chatcmpl');
+  
+  console.log('[POST /chat/completions] Model:', model, 'Prompt length:', prompt.length, 'Stream:', stream);
 
   const flags = [];
-  if (max_tokens != null) flags.push('--max-tokens', String(max_tokens));
-  if (temperature != null) flags.push('--temperature', String(temperature));
-  
-  // Handle tool calling
+  // Note: qodercli uses --max-output-tokens, not --max-tokens
+  // And it only accepts specific values like "16k" or "32k"
+  if (max_tokens != null) {
+    // Convert OpenAI max_tokens to qodercli format
+    if (max_tokens >= 32000) {
+      flags.push('--max-output-tokens', '32k');
+    } else if (max_tokens >= 16000) {
+      flags.push('--max-output-tokens', '16k');
+    }
+    // Smaller values: qodercli will use its default
+  }
+  // Note: temperature is not supported by qodercli
+
+  // Log tool requests (not yet implemented)
   if (tools && Array.isArray(tools) && tools.length > 0) {
-    // For now, we'll add tools support but qodercli uses its built-in tools
-    // We could potentially map OpenAI tool specs to qodercli tools in the future
     console.log('[chat/completions] Tools requested but mapping not implemented yet');
   }
-  
   if (tool_choice && tool_choice !== 'auto') {
     console.log('[chat/completions] Tool choice specified but not implemented yet');
   }
@@ -185,30 +110,21 @@ router.post('/', (req, res) => {
         
         if (finishReason) lastFinishReason = finishReason;
         
-        // Handle tool calls
         if (toolCalls && toolCalls.length > 0) {
           res.write(`data: ${JSON.stringify(buildToolCallStreamChunk(data, model, id))}\n\n`);
           lastFinishReason = 'tool_calls';
-        }
-        // Handle regular text content
-        else if (content) {
+        } else if (content) {
           res.write(`data: ${JSON.stringify(buildStreamChunk(content, model, id))}\n\n`);
         }
       },
       onDone: (_code, _stderr) => {
-        // Send a final chunk with finish_reason so clients know why we stopped
         res.write(`data: ${JSON.stringify(buildDoneChunk(model, id, lastFinishReason))}\n\n`);
         res.write('data: [DONE]\n\n');
         res.end();
       },
       onError: (err) => {
         console.error('[chat/completions]', err.message);
-        // Headers already sent — signal via SSE error event
-        res.write(
-          `data: ${JSON.stringify({
-            error: { message: err.message, type: err.code === 'TIMEOUT' ? 'timeout_error' : 'api_error' },
-          })}\n\n`
-        );
+        res.write(`data: ${JSON.stringify({ error: { message: err.message, type: err.code === 'TIMEOUT' ? 'timeout_error' : 'api_error' } })}\n\n`);
         res.end();
       },
     });
@@ -242,7 +158,6 @@ router.post('/', (req, res) => {
           });
         }
         
-        // Send response with tool calls if present
         if (allToolCalls.length > 0) {
           res.json(buildFullChatResponseWithTools(allToolCalls, fullContent, model, finishReason, id));
         } else {
@@ -255,9 +170,6 @@ router.post('/', (req, res) => {
         });
       },
     });
-
-    // For non-streaming, don't kill on client disconnect - let it complete
-    // req.on('close', () => child.kill());
   }
 });
 
