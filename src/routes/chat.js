@@ -42,7 +42,7 @@ router.post('/', (req, res) => {
   // Log IDE/client info for debugging
   const userAgent = req.headers['user-agent'] || 'unknown';
   if (userAgent.includes('Continue') || userAgent.includes('Zed') || userAgent.includes('Cursor')) {
-    console.log('[IDE Request]', userAgent, 'stream:', stream, 'model:', requestedModel);
+    console.log('[IDE Request]', userAgent, 'stream:', stream, 'model:', requestedModel, 'messages:', messages?.length || 0);
   }
 
   // Validate messages
@@ -58,6 +58,12 @@ router.post('/', (req, res) => {
   const model = getModelMapping(requestedModel);
   const prompt = messagesToPrompt(messages);
   const id = newId('chatcmpl');
+  
+  // Debug: Log prompt for IDE tools
+  const userAgent = req.headers['user-agent'] || '';
+  if (userAgent.includes('Continue') || userAgent.includes('Zed') || userAgent.includes('Cursor')) {
+    console.log('[IDE Prompt]', prompt.substring(0, 150) + (prompt.length > 150 ? '...' : ''));
+  }
 
   const flags = [];
   // qodercli uses --max-output-tokens with values "16k" or "32k"
@@ -109,13 +115,16 @@ router.post('/', (req, res) => {
           res.write(`data: ${JSON.stringify(buildStreamChunk(content, model, id))}\n\n`);
         }
       },
-      onDone: (_code, _stderr) => {
+      onDone: (code, stderr) => {
+        if (code !== 0 || stderr) {
+          console.error('[chat/completions] qodercli exited with code:', code, 'stderr:', stderr?.substring(0, 200));
+        }
         res.write(`data: ${JSON.stringify(buildDoneChunk(model, id, lastFinishReason))}\n\n`);
         res.write('data: [DONE]\n\n');
         res.end();
       },
       onError: (err) => {
-        console.error('[chat/completions]', err.message);
+        console.error('[chat/completions] error:', err.message);
         res.write(`data: ${JSON.stringify({ error: { message: err.message, type: err.code === 'TIMEOUT' ? 'timeout_error' : 'api_error' } })}\n\n`);
         res.end();
       },
