@@ -39,7 +39,37 @@ const extractTextContent = (message) => {
  * `description` — brief explanation shown in /v1/models
  */
 const QODER_MODELS = [
-  // ── Tiered models ────────────────────────────────────────────────────────
+  // ── Assistant scene models ────────────────────────────────────────────────
+  {
+    id: 'auto',
+    label: 'Auto (Smart Select)',
+    tier: 'paid',
+    description: 'Paid tier — automatically selects the best model per task (default for paid plans).',
+  },
+  {
+    id: 'ultimate',
+    label: 'Ultimate (Best Quality)',
+    tier: 'paid',
+    description: 'Paid tier — top-tier model, maximum quality.',
+  },
+  {
+    id: 'performance',
+    label: 'Performance',
+    tier: 'paid',
+    description: 'Paid tier — high-performance model for demanding tasks.',
+  },
+  {
+    id: 'qmodel',
+    label: 'Qwen-Max',
+    tier: 'new',
+    description: 'New model — Qwen-Max series (Alibaba).',
+  },
+  {
+    id: 'q35model',
+    label: 'Qwen3.5-Plus',
+    tier: 'new',
+    description: 'New model — Qwen 3.5 Plus (Alibaba).',
+  },
   {
     id: 'lite',
     label: 'Lite',
@@ -52,54 +82,24 @@ const QODER_MODELS = [
     tier: 'paid',
     description: 'Paid tier — optimised for speed and cost efficiency.',
   },
-  {
-    id: 'auto',
-    label: 'Auto',
-    tier: 'paid',
-    description: 'Paid tier — automatically selects the best model per task (default for paid plans).',
-  },
-  {
-    id: 'performance',
-    label: 'Performance',
-    tier: 'paid',
-    description: 'Paid tier — high-performance model for demanding tasks.',
-  },
-  {
-    id: 'ultimate',
-    label: 'Ultimate',
-    tier: 'paid',
-    description: 'Paid tier — top-tier model, maximum quality.',
-  },
-  // ── New / frontier models ─────────────────────────────────────────────────
-  {
-    id: 'qmodel',
-    label: 'Qwen',
-    tier: 'new',
-    description: 'New model — Qwen series (Alibaba).',
-  },
-  {
-    id: 'q35model',
-    label: 'Qwen 3.5',
-    tier: 'new',
-    description: 'New model — Qwen 3.5 (Alibaba).',
-  },
+  // ── Quest scene models ────────────────────────────────────────────────────
   {
     id: 'gmodel',
-    label: 'GLM',
+    label: 'GLM-5',
     tier: 'new',
-    description: 'New model — GLM series (Zhipu AI).',
+    description: 'New model — GLM-5 series (Zhipu AI).',
   },
   {
     id: 'kmodel',
-    label: 'Kimi',
+    label: 'Kimi-K2.5',
     tier: 'new',
-    description: 'New model — Kimi (Moonshot AI).',
+    description: 'New model — Kimi-K2.5 (Moonshot AI).',
   },
   {
     id: 'mmodel',
-    label: 'MiniMax',
+    label: 'MiniMax-M2.7',
     tier: 'new',
-    description: 'New model — MiniMax.',
+    description: 'New model — MiniMax-M2.7.',
   },
 ];
 
@@ -255,14 +255,91 @@ const buildFullCompletionResponse = (text, model, finishReason, id) => ({
   usage: { prompt_tokens: null, completion_tokens: null, total_tokens: null },
 });
 
+/**
+ * Extracts tool calls from qodercli message content
+ * @param {Array} content - The content array from qodercli message
+ * @returns {Array|null} - Array of OpenAI-format tool calls or null
+ */
+const extractToolCalls = (content) => {
+  if (!Array.isArray(content)) return null;
+  
+  const toolCalls = [];
+  for (const item of content) {
+    if (item.type === 'function' && item.id && item.name && item.input) {
+      toolCalls.push({
+        id: item.id,
+        type: 'function',
+        function: {
+          name: item.name,
+          arguments: item.input
+        }
+      });
+    }
+  }
+  
+  return toolCalls.length > 0 ? toolCalls : null;
+};
+
+/**
+ * Build streaming chunk with tool calls
+ * @param {Object} data - qodercli data object  
+ * @param {string} model - model name
+ * @param {string} id - completion id
+ * @returns {Object} - OpenAI format streaming chunk
+ */
+const buildToolCallStreamChunk = (data, model, id) => {
+  const toolCalls = extractToolCalls(data.message?.content);
+  
+  return {
+    id,
+    object: 'chat.completion.chunk', 
+    created: Math.floor(Date.now() / 1000),
+    model,
+    choices: [{
+      index: 0,
+      delta: toolCalls ? { tool_calls: toolCalls } : {},
+      finish_reason: data.message?.status === 'tool_calling' ? null : 'tool_calls'
+    }]
+  };
+};
+
+/**
+ * Build full chat response with tool calls
+ * @param {Array} toolCalls - Array of tool calls
+ * @param {string} content - Text content 
+ * @param {string} model - model name
+ * @param {string} finishReason - finish reason
+ * @param {string} id - completion id
+ * @returns {Object} - OpenAI format response
+ */
+const buildFullChatResponseWithTools = (toolCalls, content, model, finishReason, id) => ({
+  id,
+  object: 'chat.completion',
+  created: Math.floor(Date.now() / 1000),
+  model,
+  choices: [{
+    index: 0,
+    message: {
+      role: 'assistant',
+      content: content || null,
+      tool_calls: toolCalls
+    },
+    finish_reason: finishReason || (toolCalls ? 'tool_calls' : 'stop')
+  }],
+  usage: { prompt_tokens: null, completion_tokens: null, total_tokens: null },
+});
+
 module.exports = {
   newId,
   extractTextContent,
+  extractToolCalls,
   getModelMapping,
   messagesToPrompt,
   buildStreamChunk,
   buildDoneChunk,
   buildFullChatResponse,
+  buildToolCallStreamChunk,
+  buildFullChatResponseWithTools,
   buildCompletionStreamChunk,
   buildFullCompletionResponse,
   // Model catalogue — used by /v1/models endpoint

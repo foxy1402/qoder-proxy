@@ -16,7 +16,7 @@ router.use('/static', express.static(PUBLIC_DIR));
 
 // ── Public routes (no auth) ──────────────────────────────────────────────────
 
-router.get('/login', (_req, res) => res.sendFile(path.join(PUBLIC_DIR, 'login.html')));
+router.get('/login', (_req, res) => res.sendFile(path.join(PUBLIC_DIR, 'index.html')));
 
 router.post('/login', express.urlencoded({ extended: false }), (req, res) => {
   const { password } = req.body || {};
@@ -107,7 +107,10 @@ router.post('/api/chat', (req, res) => {
     },
   });
 
-  req.on('close', () => child.kill());
+  req.on('close', () => {
+    console.log('[runQoderRequest] HTTP request closed, killing qodercli process');
+    child.kill();
+  });
 });
 
 // ── API — request logs ───────────────────────────────────────────────────────

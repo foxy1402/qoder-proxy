@@ -7,6 +7,7 @@ Use Qoder through any tool or library designed for OpenAI's API.
 
 - **🔌 OpenAI-Compatible**: Drop-in API replacement for apps like Cursor, Cline, LangChain, and Open WebUI
 - **💬 Full Chat Support**: Support for `/v1/chat/completions` (system messages, multi-turn history)
+- **🛠 Tool Calling**: Automatic tool execution (file operations, shell commands, code editing) with OpenAI-compatible responses
 - **⚡ Streaming**: Real-time SSE streaming responses without lag
 - **🔄 Intelligent Tier Mapping**: Seamless translation between OpenAI aliases (gpt-4, claude-3.5) and Qoder tiers (auto, ultimate, lite)
 - **📊 Admin Dashboard**: Built-in dark-themed web dashboard for testing, viewing live logs, and monitoring proxy health
@@ -117,10 +118,51 @@ curl http://localhost:3000/v1/chat/completions \
   }'
 ```
 
+## 🛠 Tool Calling
+
+The proxy supports **automatic tool calling** using qodercli's built-in tools. When the AI needs to perform actions like creating files, running commands, or searching code, it will automatically use the appropriate tools and return the results in OpenAI-compatible format.
+
+### Supported Built-in Tools
+
+- **Write**: Create/modify files
+- **Read**: Read file contents  
+- **Bash**: Execute shell commands
+- **Edit**: Make targeted file edits
+- **Grep**: Search text in files
+- **Glob**: Find files by pattern
+- **Task**: Delegate to specialized agents
+- **WebFetch**: Fetch web content
+- **ImageGen**: Generate images
+- And more...
+
+### Example Tool Call Response
+
+```json
+{
+  "choices": [{
+    "message": {
+      "role": "assistant", 
+      "content": "Created hello.py with the requested code.",
+      "tool_calls": [{
+        "id": "call_123",
+        "type": "function",
+        "function": {
+          "name": "Write",
+          "arguments": "{\"file_path\": \"hello.py\", \"content\": \"print('Hello!')\"}"
+        }
+      }]
+    },
+    "finish_reason": "tool_calls"
+  }]
+}
+```
+
+Tools are automatically invoked based on the user's request—no manual tool definitions required!
+
 ## ⚠️ Limitations
 - **Embeddings**: Qoder does not support embeddings. Calling `/v1/embeddings` securely returns a `501 Not Implemented`.
 - **Token usage limits**: Request token tracking / `usage` payload properties return `null`.
-- **Function calling**: Not implemented by the Qoder CLI wrapper yet.
+- **Custom Tools**: Only qodercli's built-in tools are supported (Write, Read, Bash, Edit, etc.). Custom OpenAI-style function definitions are not yet supported.
 
 ## License
 MIT

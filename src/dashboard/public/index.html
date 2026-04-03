@@ -6,8 +6,54 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/dashboard/static/style.css">
+<style id="login-styles">
+/* Login-specific styles */
+.login-body{min-height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden}
+body.login-mode{min-height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden}
+body.login-mode::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 80% 60% at 50% -10%,rgba(139,92,246,0.18),transparent);pointer-events:none;z-index:0}
+body.login-mode #app{display:none}
+body.login-mode #login-container{display:flex}
+#login-container{display:none;width:100%;justify-content:center;align-items:center;min-height:100vh}
+.login-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:40px;width:100%;max-width:380px;box-shadow:0 24px 64px rgba(0,0,0,0.5);position:relative;z-index:1}
+.login-logo{display:flex;align-items:center;gap:10px;margin-bottom:28px}
+.login-logo-icon{width:38px;height:38px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;color:#fff;flex-shrink:0}
+.login-logo-text{font-size:15px;font-weight:600;color:var(--text1)}
+.login-logo-sub{font-size:12px;color:var(--text2)}
+.login-card h1{font-size:22px;font-weight:700;margin-bottom:6px}
+.login-subtitle{font-size:13px;color:var(--text2);margin-bottom:28px}
+.login-field{margin-bottom:18px}
+.login-field label{display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:6px;letter-spacing:.03em;text-transform:uppercase}
+.login-field input[type=password]{width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text1);border-radius:8px;padding:11px 14px;font-size:14px;font-family:inherit;outline:none;transition:border-color .2s}
+.login-field input[type=password]:focus{border-color:var(--accent)}
+.login-field input[type=password]::placeholder{color:var(--text3)}
+.login-btn{width:100%;padding:12px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;transition:opacity .2s,box-shadow .2s;box-shadow:0 0 0 rgba(139,92,246,0)}
+.login-btn:hover{opacity:.9;box-shadow:0 0 24px rgba(139,92,246,0.35)}
+.login-error{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:#fca5a5;border-radius:8px;padding:10px 12px;font-size:13px;margin-bottom:16px;display:none}
+.login-error.show{display:block}
+</style>
 </head>
 <body>
+<!-- Login View -->
+<div id="login-container">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="login-logo-icon">Q</div>
+      <div><div class="login-logo-text">Qoder Proxy</div><div class="login-logo-sub">Dashboard</div></div>
+    </div>
+    <h1>Sign In</h1>
+    <p class="login-subtitle">Enter your dashboard password to continue</p>
+    <div class="login-error" id="login-err">Incorrect password. Please try again.</div>
+    <form method="POST" action="/dashboard/login">
+      <div class="login-field">
+        <label>Password</label>
+        <input type="password" name="password" id="pw" autofocus placeholder="••••••••••••" required>
+      </div>
+      <button type="submit" class="login-btn">Sign In</button>
+    </form>
+  </div>
+</div>
+
+<!-- Dashboard View -->
 <div id="app">
   <!-- Sidebar -->
   <aside id="sidebar">
@@ -66,6 +112,24 @@
     </main>
   </div>
 </div>
-<script src="/dashboard/static/app.js"></script>
+
+<script>
+// Detect if we should show login or dashboard
+(function() {
+  const isLoginPage = window.location.pathname === '/dashboard/login' || new URLSearchParams(location.search).get('error') === '1';
+  
+  if (isLoginPage) {
+    document.body.classList.add('login-mode');
+    if (new URLSearchParams(location.search).get('error') === '1') {
+      document.getElementById('login-err').classList.add('show');
+    }
+  } else {
+    // Load dashboard app only if not on login page
+    const script = document.createElement('script');
+    script.src = '/dashboard/static/app.js';
+    document.body.appendChild(script);
+  }
+})();
+</script>
 </body>
 </html>

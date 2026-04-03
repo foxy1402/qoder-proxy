@@ -46,6 +46,7 @@ const parseStreamJsonLine = (line) => {
  * @returns {ChildProcess} - so callers can kill() on client disconnect
  */
 const runQoderRequest = ({ prompt, model, flags = [], timeoutMs = 120_000, onChunk, onDone, onError }) => {
+  console.log('[runQoderRequest] Starting with prompt:', prompt.substring(0, 100) + '...', 'model:', model, 'flags:', flags);
   let buffer = '';
   let stderrOutput = '';
   let settled = false; // guard against both timeout and close firing
@@ -59,6 +60,24 @@ const runQoderRequest = ({ prompt, model, flags = [], timeoutMs = 120_000, onChu
   };
 
   const child = spawnQoderCli(prompt, model, flags);
+  console.log('[runQoderRequest] Spawned qodercli with PID:', child.pid);
+  
+  // Add comprehensive debug for all process events
+  child.on('spawn', () => {
+    console.log('[runQoderRequest] Process spawned successfully');
+  });
+  
+  child.on('error', (err) => {
+    console.error('[runQoderRequest] Process error:', err);
+  });
+  
+  child.on('exit', (code, signal) => {
+    console.log('[runQoderRequest] Process exited with code:', code, 'signal:', signal);
+  });
+  
+  child.stderr.on('end', () => {
+    console.log('[runQoderRequest] stderr ended');
+  });
 
   if (timeoutMs > 0) {
     timeoutHandle = setTimeout(() => {
@@ -71,17 +90,27 @@ const runQoderRequest = ({ prompt, model, flags = [], timeoutMs = 120_000, onChu
     }, timeoutMs);
   }
 
+  let allData = '';
+  
   child.stdout.on('data', (chunk) => {
-    buffer += chunk.toString();
-    const lines = buffer.split('\n');
-    buffer = lines.pop() || '';
+    allData += chunk.toString();
+  });
 
+  child.stdout.on('end', () => {
+    const lines = allData.trim().split('\n');
+    
     for (const line of lines) {
       if (!line.trim()) continue;
-      const data = parseStreamJsonLine(line);
-      if (!data) continue;
-      if (data.type === 'assistant' && data.subtype === 'message') {
-        onChunk(data);
+      
+      try {
+        const data = JSON.parse(line);
+        
+        if (data.type === 'assistant' && data.subtype === 'message') {
+          onChunk(data);
+        }
+      } catch (e) {
+        // Skip invalid JSON lines
+        continue;
       }
     }
   });
@@ -94,6 +123,7 @@ const runQoderRequest = ({ prompt, model, flags = [], timeoutMs = 120_000, onChu
   });
 
   child.on('close', (code) => {
+    console.log('[runQoderRequest] qodercli process closed with code:', code, 'stderr:', stderrOutput.trim().substring(0, 100) + '...');
     settle(() => onDone(code, stderrOutput.trim()));
   });
 

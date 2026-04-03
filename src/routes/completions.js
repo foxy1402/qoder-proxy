@@ -88,7 +88,8 @@ router.post('/', (req, res) => {
       },
     });
 
-    req.on('close', () => child.kill());
+    // For non-streaming, don't kill on client disconnect - let it complete  
+    // req.on('close', () => child.kill());
   }
 });
 

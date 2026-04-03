@@ -29,9 +29,6 @@ app.get('/', (_req, res) => res.json({
 
 app.get('/health', healthHandler);
 
-// Redirect bare /dashboard → /dashboard/
-app.get('/dashboard', (_req, res) => res.redirect('/dashboard/'));
-
 // ── Dashboard (optional) ─────────────────────────────────────────────────────
 if (DASHBOARD_ENABLED) {
   app.use('/dashboard', dashboardRouter);
@@ -76,3 +73,4 @@ start().catch((err) => {
   console.error('Fatal startup error:', err);
   process.exit(1);
 });
+// Force reload

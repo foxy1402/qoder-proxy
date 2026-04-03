@@ -3,10 +3,13 @@ const {
   getModelMapping,
   messagesToPrompt,
   extractTextContent,
+  extractToolCalls,
   newId,
   buildStreamChunk,
   buildDoneChunk,
   buildFullChatResponse,
+  buildToolCallStreamChunk,
+  buildFullChatResponseWithTools,
 } = require('../helpers/format');
 const { runQoderRequest } = require('../helpers/spawn');
 const { QODER_TIMEOUT_MS } = require('../config');
@@ -21,7 +24,7 @@ const setSSEHeaders = (res) => {
 };
 
 router.post('/', (req, res) => {
-  const { messages, model: requestedModel, stream = false, temperature, max_tokens } = req.body;
+  const { messages, model: requestedModel, stream = false, temperature, max_tokens, tools, tool_choice } = req.body;
 
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({
@@ -39,6 +42,17 @@ router.post('/', (req, res) => {
   const flags = [];
   if (max_tokens != null) flags.push('--max-tokens', String(max_tokens));
   if (temperature != null) flags.push('--temperature', String(temperature));
+  
+  // Handle tool calling
+  if (tools && Array.isArray(tools) && tools.length > 0) {
+    // For now, we'll add tools support but qodercli uses its built-in tools
+    // We could potentially map OpenAI tool specs to qodercli tools in the future
+    console.log('[chat/completions] Tools requested but mapping not implemented yet');
+  }
+  
+  if (tool_choice && tool_choice !== 'auto') {
+    console.log('[chat/completions] Tool choice specified but not implemented yet');
+  }
 
   if (stream) {
     setSSEHeaders(res);
@@ -51,9 +65,18 @@ router.post('/', (req, res) => {
       timeoutMs: QODER_TIMEOUT_MS,
       onChunk: (data) => {
         const content = extractTextContent(data.message);
+        const toolCalls = extractToolCalls(data.message?.content);
         const finishReason = data.message?.stop_reason || null;
+        
         if (finishReason) lastFinishReason = finishReason;
-        if (content) {
+        
+        // Handle tool calls
+        if (toolCalls && toolCalls.length > 0) {
+          res.write(`data: ${JSON.stringify(buildToolCallStreamChunk(data, model, id))}\n\n`);
+          lastFinishReason = 'tool_calls';
+        }
+        // Handle regular text content
+        else if (content) {
           res.write(`data: ${JSON.stringify(buildStreamChunk(content, model, id))}\n\n`);
         }
       },
@@ -79,6 +102,7 @@ router.post('/', (req, res) => {
   } else {
     let fullContent = '';
     let finishReason = 'stop';
+    let allToolCalls = [];
 
     const child = runQoderRequest({
       prompt,
@@ -86,7 +110,14 @@ router.post('/', (req, res) => {
       flags,
       timeoutMs: QODER_TIMEOUT_MS,
       onChunk: (data) => {
-        fullContent += extractTextContent(data.message);
+        const content = extractTextContent(data.message);
+        const toolCalls = extractToolCalls(data.message?.content);
+        
+        if (content) fullContent += content;
+        if (toolCalls && toolCalls.length > 0) {
+          allToolCalls.push(...toolCalls);
+          finishReason = 'tool_calls';
+        }
         if (data.message?.stop_reason) finishReason = data.message.stop_reason;
       },
       onDone: (code, stderr) => {
@@ -95,7 +126,13 @@ router.post('/', (req, res) => {
             error: { message: `qodercli exited with code ${code}`, type: 'api_error', details: stderr },
           });
         }
-        res.json(buildFullChatResponse(fullContent, model, finishReason, id));
+        
+        // Send response with tool calls if present
+        if (allToolCalls.length > 0) {
+          res.json(buildFullChatResponseWithTools(allToolCalls, fullContent, model, finishReason, id));
+        } else {
+          res.json(buildFullChatResponse(fullContent, model, finishReason, id));
+        }
       },
       onError: (err) => {
         res.status(err.code === 'TIMEOUT' ? 504 : 500).json({
@@ -104,7 +141,8 @@ router.post('/', (req, res) => {
       },
     });
 
-    req.on('close', () => child.kill());
+    // For non-streaming, don't kill on client disconnect - let it complete
+    // req.on('close', () => child.kill());
   }
 });
 
