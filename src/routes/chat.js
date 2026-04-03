@@ -79,6 +79,9 @@ router.post('/', (req, res) => {
   if (stream) {
     setSSEHeaders(res);
     
+    const streamStartTime = Date.now();
+    console.log('[Stream Timing] Stream started at', streamStartTime);
+    
     // Disable socket timeout and enable keepalive for long-running streams
     req.socket.setTimeout(0);
     req.socket.setKeepAlive(true);
@@ -86,6 +89,7 @@ router.post('/', (req, res) => {
     // Send SSE comment immediately to keep connection alive (IDE compatibility)
     // Don't send an empty delta - some IDEs interpret that as end of stream
     res.write(': keep-alive\n\n');
+    console.log('[Stream Timing] Keepalive sent at', Date.now() - streamStartTime, 'ms');
     
     // Explicitly flush the response buffer
     if (typeof res.flush === 'function') res.flush();
@@ -102,6 +106,10 @@ router.post('/', (req, res) => {
         const content = extractTextContent(data.message);
         const toolCalls = extractToolCalls(data.message?.content);
         const finishReason = data.message?.stop_reason || null;
+        
+        if (!hasReceivedData) {
+          console.log('[Stream Timing] First chunk received at', Date.now() - streamStartTime, 'ms');
+        }
         
         if (finishReason) lastFinishReason = finishReason;
         
@@ -142,6 +150,8 @@ router.post('/', (req, res) => {
     });
 
     req.on('close', () => {
+      const disconnectTime = Date.now() - streamStartTime;
+      console.log('[Stream Timing] Client disconnected at', disconnectTime, 'ms');
       if (!hasReceivedData) {
         console.log('[chat/completions] Client disconnected before receiving any data');
       }
