@@ -25,30 +25,18 @@ const setSSEHeaders = (res) => {
 
 // ── GET handler for client compatibility ────────────────────────────────────
 router.get('/', (req, res) => {
-  console.log('[GET /chat/completions] Query:', req.query);
-  console.log('[GET /chat/completions] User-Agent:', req.headers['user-agent']);
-  
   // Return helpful error - OpenAI SDK should use POST
   return res.status(400).json({
     error: {
       message: 'Use POST method for chat completions',
       type: 'invalid_request_error',
-      help: 'POST /v1/chat/completions with JSON body: {"messages": [...], "model": "auto"}',
-      debug: {
-        receivedMethod: 'GET',
-        expectedMethod: 'POST',
-        userAgent: req.headers['user-agent']
-      }
+      help: 'POST /v1/chat/completions with JSON body: {"messages": [...], "model": "auto"}'
     }
   });
 });
 
 // ── POST handler (standard OpenAI-compatible endpoint) ──────────────────────
 router.post('/', (req, res) => {
-  // Debug logging
-  console.log('[POST /chat/completions] Content-Type:', req.headers['content-type']);
-  console.log('[POST /chat/completions] Body keys:', Object.keys(req.body || {}));
-  
   const { messages, model: requestedModel, stream = false, temperature, max_tokens, tools, tool_choice } = req.body || {};
 
   // Validate messages
@@ -57,11 +45,6 @@ router.post('/', (req, res) => {
       error: {
         message: 'messages is required and must be a non-empty array',
         type: 'invalid_request_error',
-        debug: {
-          receivedBody: req.body,
-          bodyType: typeof req.body,
-          contentType: req.headers['content-type']
-        }
       },
     });
   }
@@ -69,30 +52,18 @@ router.post('/', (req, res) => {
   const model = getModelMapping(requestedModel);
   const prompt = messagesToPrompt(messages);
   const id = newId('chatcmpl');
-  
-  console.log('[POST /chat/completions] Model:', model, 'Prompt length:', prompt.length, 'Stream:', stream);
 
   const flags = [];
-  // Note: qodercli uses --max-output-tokens, not --max-tokens
-  // And it only accepts specific values like "16k" or "32k"
+  // qodercli uses --max-output-tokens with values "16k" or "32k"
   if (max_tokens != null) {
-    // Convert OpenAI max_tokens to qodercli format
     if (max_tokens >= 32000) {
       flags.push('--max-output-tokens', '32k');
     } else if (max_tokens >= 16000) {
       flags.push('--max-output-tokens', '16k');
     }
-    // Smaller values: qodercli will use its default
   }
   // Note: temperature is not supported by qodercli
-
-  // Log tool requests (not yet implemented)
-  if (tools && Array.isArray(tools) && tools.length > 0) {
-    console.log('[chat/completions] Tools requested but mapping not implemented yet');
-  }
-  if (tool_choice && tool_choice !== 'auto') {
-    console.log('[chat/completions] Tool choice specified but not implemented yet');
-  }
+  // Note: tools/tool_choice not yet implemented
 
   if (stream) {
     setSSEHeaders(res);

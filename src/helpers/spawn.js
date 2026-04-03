@@ -46,10 +46,9 @@ const parseStreamJsonLine = (line) => {
  * @returns {ChildProcess} - so callers can kill() on client disconnect
  */
 const runQoderRequest = ({ prompt, model, flags = [], timeoutMs = 120_000, onChunk, onDone, onError }) => {
-  console.log('[runQoderRequest] Starting with prompt:', prompt.substring(0, 100) + '...', 'model:', model, 'flags:', flags);
   let buffer = '';
   let stderrOutput = '';
-  let settled = false; // guard against both timeout and close firing
+  let settled = false;
   let timeoutHandle;
 
   const settle = (fn) => {
@@ -60,23 +59,9 @@ const runQoderRequest = ({ prompt, model, flags = [], timeoutMs = 120_000, onChu
   };
 
   const child = spawnQoderCli(prompt, model, flags);
-  console.log('[runQoderRequest] Spawned qodercli with PID:', child.pid);
-  
-  // Add comprehensive debug for all process events
-  child.on('spawn', () => {
-    console.log('[runQoderRequest] Process spawned successfully');
-  });
   
   child.on('error', (err) => {
-    console.error('[runQoderRequest] Process error:', err);
-  });
-  
-  child.on('exit', (code, signal) => {
-    console.log('[runQoderRequest] Process exited with code:', code, 'signal:', signal);
-  });
-  
-  child.stderr.on('end', () => {
-    console.log('[runQoderRequest] stderr ended');
+    console.error('[qodercli error]', err.message);
   });
 
   if (timeoutMs > 0) {
@@ -130,17 +115,14 @@ const runQoderRequest = ({ prompt, model, flags = [], timeoutMs = 120_000, onChu
   child.stderr.on('data', (chunk) => {
     const text = chunk.toString().trim();
     stderrOutput += text + '\n';
-    console.error('[qodercli stderr]', text);
     addSystem(text, 'error', 'qodercli-stderr');
   });
 
   child.on('close', (code) => {
-    console.log('[runQoderRequest] qodercli process closed with code:', code, 'stderr:', stderrOutput.trim().substring(0, 100) + '...');
     settle(() => onDone(code, stderrOutput.trim()));
   });
 
   child.on('error', (err) => {
-    console.error('[qodercli spawn error]', err.message);
     addSystem(err.message, 'error', 'qodercli-spawn');
     settle(() => onError(err));
   });

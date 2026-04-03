@@ -162,6 +162,12 @@ function renderEndpoints() {
 
   const compat = ['OpenAI Python SDK','LangChain','LM Studio','Cursor','Continue.dev','Open WebUI','Aider','Cline','AnythingLLM'];
 
+  const isHttp = base.startsWith('http://');
+  const httpsWarning = isHttp ? `
+    <div class="card card-sm" style="border-color:rgba(245,158,11,.3);margin-top:12px">
+      <p style="color:#fcd34d;font-size:13px">⚠️ <strong>HTTP detected</strong> — If your provider uses HTTPS, make sure to use <code style="font-family:'JetBrains Mono',monospace">https://</code> in your base URL. Using <code>http://</code> with an HTTPS server causes 301 redirects that break POST requests.</p>
+    </div>` : '';
+
   $('content').innerHTML = `
     <div class="page-header"><div><h1 class="page-title">Endpoints</h1><p class="page-sub">Your OpenAI-compatible proxy — drop this URL into any app</p></div></div>
 
@@ -176,6 +182,7 @@ function renderEndpoints() {
         <button class="copy-btn-ghost" onclick="copyText('${v1}/chat/completions',this)">Copy Chat Endpoint</button>
       </div>
     </div>
+    ${httpsWarning}
 
     ${key ? `<div class="card card-sm">
       <div class="card-title">🔑 Proxy API Key</div>
