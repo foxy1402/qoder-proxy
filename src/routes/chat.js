@@ -31,7 +31,7 @@ router.get('/', (req, res) => {
   console.log('[GET /chat/completions] Headers:', req.headers);
   
   // Extract parameters from query string, body, or headers
-  const { message, messages, model = 'auto', stream = false, temperature, max_tokens, content, text, prompt } = { 
+  const { message, messages, model = 'auto', stream = false, temperature, max_tokens, content, text, prompt: userPrompt } = { 
     ...req.query, 
     ...req.body 
   };
@@ -39,7 +39,7 @@ router.get('/', (req, res) => {
   let parsedMessages;
   
   // Try multiple parameter names that different bots might use
-  const userInput = message || content || text || prompt || req.query.q || req.body.content;
+  const userInput = message || content || text || userPrompt || req.query.q || req.body.content;
   const messageArray = messages || req.body.messages;
   
   if (messageArray) {
@@ -71,7 +71,7 @@ router.get('/', (req, res) => {
         debug: {
           receivedQuery: req.query,
           receivedBody: req.body,
-          supportedParams: ['message', 'content', 'text', 'prompt', 'messages']
+          supportedParams: ['message', 'content', 'text', 'prompt', 'messages', 'q']
         }
       }
     });
