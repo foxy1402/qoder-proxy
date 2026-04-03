@@ -23,17 +23,110 @@ const setSSEHeaders = (res) => {
   res.setHeader('X-Accel-Buffering', 'no');
 };
 
-router.post('/', (req, res) => {
-  const { messages, model: requestedModel, stream = false, temperature, max_tokens, tools, tool_choice } = req.body;
-
-  if (!messages || !Array.isArray(messages) || messages.length === 0) {
+// Smart routing - support GET requests for better client compatibility
+router.get('/', (req, res) => {
+  // Extract parameters from query string
+  const { message, messages, model = 'auto', stream = false, temperature, max_tokens } = req.query;
+  
+  let parsedMessages;
+  
+  if (messages) {
+    // Try to parse messages from query parameter (JSON string)
+    try {
+      parsedMessages = JSON.parse(decodeURIComponent(messages));
+    } catch (e) {
+      return res.status(400).json({
+        error: {
+          message: 'Invalid messages parameter. Must be valid JSON array.',
+          type: 'invalid_request_error',
+        }
+      });
+    }
+  } else if (message) {
+    // Simple single message support
+    parsedMessages = [{ role: 'user', content: decodeURIComponent(message) }];
+  } else {
     return res.status(400).json({
       error: {
-        message: 'messages is required and must be a non-empty array',
+        message: 'Missing required parameter. Use ?message=your_text or ?messages=[{"role":"user","content":"text"}]',
+        type: 'invalid_request_error',
+        help: 'GET Example: /v1/chat/completions?message=Hello&model=auto'
+      }
+    });
+  }
+
+  if (!Array.isArray(parsedMessages) || parsedMessages.length === 0) {
+    return res.status(400).json({
+      error: {
+        message: 'messages must be a non-empty array',
         type: 'invalid_request_error',
       },
     });
   }
+
+  const mappedModel = getModelMapping(model);
+  const prompt = messagesToPrompt(parsedMessages);
+  const id = newId('chatcmpl');
+
+  const flags = [];
+  if (max_tokens != null) flags.push('--max-tokens', String(max_tokens));
+  if (temperature != null) flags.push('--temperature', String(temperature));
+
+  const isStream = stream === 'true';
+
+  if (isStream) {
+    setSSEHeaders(res);
+    let lastFinishReason = 'stop';
+
+    const child = runQoderRequest({
+      prompt,
+      model: mappedModel,
+      flags,
+      timeoutMs: QODER_TIMEOUT_MS,
+      onChunk: (data) => {
+        const content = extractTextContent(data.message);
+        const finishReason = data.message?.stop_reason || null;
+        
+        if (finishReason) lastFinishReason = finishReason;
+        
+        res.write(`data: ${JSON.stringify(buildStreamChunk(data, mappedModel, id))}\n\n`);
+      },
+      onError: (error) => {
+        res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+        res.write('data: [DONE]\n\n');
+        res.end();
+      },
+      onEnd: () => {
+        res.write(`data: ${JSON.stringify(buildDoneChunk())}\n\n`);
+        res.write('data: [DONE]\n\n');
+        res.end();
+      },
+    });
+
+    req.on('close', () => child.kill());
+  } else {
+    let fullContent = '';
+    
+    const child = runQoderRequest({
+      prompt,
+      model: mappedModel,
+      flags,
+      timeoutMs: QODER_TIMEOUT_MS,
+      onChunk: (data) => {
+        const content = extractTextContent(data.message);
+        if (content) fullContent += content;
+      },
+      onError: (error) => {
+        res.status(500).json({ error: { message: error.message, type: 'server_error' } });
+      },
+      onEnd: () => {
+        res.json(buildFullChatResponse(id, mappedModel, fullContent));
+      },
+    });
+  }
+});
+
+router.post('/', (req, res) => {
 
   const model = getModelMapping(requestedModel);
   const prompt = messagesToPrompt(messages);
