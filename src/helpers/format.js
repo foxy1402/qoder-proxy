@@ -1,11 +1,11 @@
-const { v4: uuidv4 } = require('uuid');
+const { v4: uuidv4 } = require("uuid");
 
 // ---------------------------------------------------------------------------
 // ID generation
 // ---------------------------------------------------------------------------
 
 /** Generate a prefixed ID like `chatcmpl-abc123...` */
-const newId = (prefix) => `${prefix}-${uuidv4().replace(/-/g, '')}`;
+const newId = (prefix) => `${prefix}-${uuidv4().replace(/-/g, "")}`;
 
 // ---------------------------------------------------------------------------
 // Content extraction
@@ -16,14 +16,14 @@ const newId = (prefix) => `${prefix}-${uuidv4().replace(/-/g, '')}`;
  * Handles both array-of-parts and plain string content gracefully.
  */
 const extractTextContent = (message) => {
-  if (!message) return '';
+  if (!message) return "";
   if (Array.isArray(message.content)) {
     return message.content
-      .filter((part) => part.type === 'text')
+      .filter((part) => part.type === "text")
       .map((part) => part.text)
-      .join('');
+      .join("");
   }
-  return message.content || '';
+  return message.content || "";
 };
 
 // ---------------------------------------------------------------------------
@@ -41,70 +41,73 @@ const extractTextContent = (message) => {
 const QODER_MODELS = [
   // ── Assistant scene models ────────────────────────────────────────────────
   {
-    id: 'auto',
-    label: 'Auto (Smart Select)',
-    tier: 'paid',
-    description: 'Paid tier — automatically selects the best model per task (default for paid plans).',
+    id: "auto",
+    label: "Auto (Smart Select)",
+    tier: "paid",
+    description:
+      "Paid tier — automatically selects the best model per task (default for paid plans).",
   },
   {
-    id: 'ultimate',
-    label: 'Ultimate (Best Quality)',
-    tier: 'paid',
-    description: 'Paid tier — top-tier model, maximum quality.',
+    id: "ultimate",
+    label: "Ultimate (Best Quality)",
+    tier: "paid",
+    description: "Paid tier — top-tier model, maximum quality.",
   },
   {
-    id: 'performance',
-    label: 'Performance',
-    tier: 'paid',
-    description: 'Paid tier — high-performance model for demanding tasks.',
+    id: "performance",
+    label: "Performance",
+    tier: "paid",
+    description: "Paid tier — high-performance model for demanding tasks.",
   },
   {
-    id: 'qmodel',
-    label: 'Qwen-Max',
-    tier: 'new',
-    description: 'New model — Qwen-Max series (Alibaba).',
+    id: "qmodel",
+    label: "Qwen-Max",
+    tier: "new",
+    description: "New model — Qwen-Max series (Alibaba).",
   },
   {
-    id: 'q35model',
-    label: 'Qwen3.5-Plus',
-    tier: 'new',
-    description: 'New model — Qwen 3.5 Plus (Alibaba).',
+    id: "q35model",
+    label: "Qwen3.5-Plus",
+    tier: "new",
+    description: "New model — Qwen 3.5 Plus (Alibaba).",
   },
   {
-    id: 'lite',
-    label: 'Lite',
-    tier: 'free',
-    description: 'Free tier — fast, lightweight model for everyday tasks.',
+    id: "lite",
+    label: "Lite",
+    tier: "free",
+    description: "Free tier — fast, lightweight model for everyday tasks.",
   },
   {
-    id: 'efficient',
-    label: 'Efficient',
-    tier: 'paid',
-    description: 'Paid tier — optimised for speed and cost efficiency.',
+    id: "efficient",
+    label: "Efficient",
+    tier: "paid",
+    description: "Paid tier — optimised for speed and cost efficiency.",
   },
   // ── Quest scene models ────────────────────────────────────────────────────
   {
-    id: 'gmodel',
-    label: 'GLM-5',
-    tier: 'new',
-    description: 'New model — GLM-5 series (Zhipu AI).',
+    id: "gmodel",
+    label: "GLM-5",
+    tier: "new",
+    description: "New model — GLM-5 series (Zhipu AI).",
   },
   {
-    id: 'kmodel',
-    label: 'Kimi-K2.5',
-    tier: 'new',
-    description: 'New model — Kimi-K2.5 (Moonshot AI).',
+    id: "kmodel",
+    label: "Kimi-K2.5",
+    tier: "new",
+    description: "New model — Kimi-K2.5 (Moonshot AI).",
   },
   {
-    id: 'mmodel',
-    label: 'MiniMax-M2.7',
-    tier: 'new',
-    description: 'New model — MiniMax-M2.7.',
+    id: "mmodel",
+    label: "MiniMax-M2.7",
+    tier: "new",
+    description: "New model — MiniMax-M2.7.",
   },
 ];
 
 /** Quick lookup: qodercli model id → catalogue entry */
-const QODER_MODEL_BY_ID = Object.fromEntries(QODER_MODELS.map((m) => [m.id, m]));
+const QODER_MODEL_BY_ID = Object.fromEntries(
+  QODER_MODELS.map((m) => [m.id, m]),
+);
 
 /**
  * OpenAI-name → qodercli model id aliases.
@@ -118,43 +121,92 @@ const QODER_MODEL_BY_ID = Object.fromEntries(QODER_MODELS.map((m) => [m.id, m]))
  */
 const ALIAS_MAP = {
   // GPT-4 class → auto tier
-  'gpt-4':              'auto',
-  'gpt-4-turbo':        'auto',
-  'gpt-4o':             'auto',
-  'o1':                 'ultimate',
-  'o1-mini':            'performance',
-  'o3-mini':            'performance',
+  "gpt-4": "auto",
+  "gpt-4-turbo": "auto",
+  "gpt-4o": "auto",
+  o1: "ultimate",
+  "o1-mini": "performance",
+  "o3-mini": "performance",
   // Lightweight → lite
-  'gpt-4o-mini':        'lite',
-  'gpt-3.5-turbo':      'lite',
+  "gpt-4o-mini": "lite",
+  "gpt-3.5-turbo": "lite",
   // Claude aliases
-  'claude-3-opus':      'ultimate',
-  'claude-3-sonnet':    'performance',
-  'claude-3-haiku':     'lite',
-  'claude-3.5-sonnet':  'auto',
-  'claude-3.5-haiku':   'efficient',
-  'claude-3.7-sonnet':  'auto',
+  "claude-3-opus": "ultimate",
+  "claude-3-sonnet": "performance",
+  "claude-3-haiku": "lite",
+  "claude-3.5-sonnet": "auto",
+  "claude-3.5-haiku": "efficient",
+  "claude-3.7-sonnet": "auto",
   // Gemini aliases
-  'gemini-pro':         'performance',
-  'gemini-flash':       'efficient',
+  "gemini-pro": "performance",
+  "gemini-flash": "efficient",
   // Friendly names for "new model" tier
-  'qwen':               'qmodel',
-  'qwen-3.5':           'q35model',
-  'glm':                'gmodel',
-  'kimi':               'kmodel',
-  'minimax':            'mmodel',
+  qwen: "qmodel",
+  "qwen-3.5": "q35model",
+  glm: "gmodel",
+  kimi: "kmodel",
+  minimax: "mmodel",
 };
 
 /**
  * Resolve an OpenAI model name (or any alias) to a qodercli --model value.
- * Unknown names are passed through as-is so users can still try custom model IDs.
+ *
+ * Resolution order:
+ *   1. Direct qodercli model id (auto, lite, ultimate, etc.) → pass through
+ *   2. Known OpenAI/alias name → map to qodercli tier
+ *   3. Partial match heuristics for common unknown model names
+ *   4. Unknown → fall back to 'lite' with a console warning
  */
 const getModelMapping = (requestedModel) => {
-  if (!requestedModel) return 'lite';
-  // Direct qodercli model id — already valid
+  if (!requestedModel) return "lite";
+
+  // 1. Direct qodercli model id
   if (QODER_MODEL_BY_ID[requestedModel]) return requestedModel;
-  // OpenAI / alias lookup
-  return ALIAS_MAP[requestedModel] ?? requestedModel;
+
+  // 2. Exact alias match
+  if (ALIAS_MAP[requestedModel]) return ALIAS_MAP[requestedModel];
+
+  // 3. Heuristic partial matching for model families
+  const lower = requestedModel.toLowerCase();
+
+  // Claude family heuristics
+  if (lower.includes("claude")) {
+    if (lower.includes("opus")) return "ultimate";
+    if (lower.includes("haiku")) return "efficient";
+    // sonnet and anything else in claude family → auto
+    return "auto";
+  }
+  // GPT-4 family
+  if (lower.includes("gpt-4") || lower.includes("gpt4")) {
+    if (lower.includes("mini")) return "lite";
+    return "auto";
+  }
+  // GPT-3.5 family
+  if (lower.includes("gpt-3") || lower.includes("gpt3")) return "lite";
+  // o1/o3 reasoning models
+  if (/^o\d/.test(lower)) {
+    if (lower.includes("mini")) return "performance";
+    return "ultimate";
+  }
+  // Gemini family
+  if (lower.includes("gemini")) {
+    if (lower.includes("flash") || lower.includes("nano")) return "efficient";
+    return "performance";
+  }
+  // Qwen family
+  if (lower.includes("qwen")) return "qmodel";
+  // Kimi / Moonshot
+  if (lower.includes("kimi") || lower.includes("moonshot")) return "kmodel";
+  // GLM / Zhipu
+  if (lower.includes("glm")) return "gmodel";
+  // MiniMax
+  if (lower.includes("minimax")) return "mmodel";
+
+  // 4. Unknown model — warn and fall back to lite
+  console.warn(
+    `[model] Unknown model "${requestedModel}" — falling back to "lite". Add an alias in ALIAS_MAP to suppress this warning.`,
+  );
+  return "lite";
 };
 
 // ---------------------------------------------------------------------------
@@ -163,24 +215,30 @@ const getModelMapping = (requestedModel) => {
 
 /**
  * Convert an OpenAI messages array into a single prompt string.
- * 
+ *
  * For better qodercli compatibility, we only send the latest user message
  * instead of full conversation history, as qodercli responds better to
  * individual prompts than conversation threads.
  */
 const messagesToPrompt = (messages) => {
   // Find the last user message
-  const lastUserMessage = messages.slice().reverse().find(msg => msg.role === 'user');
-  
+  const lastUserMessage = messages
+    .slice()
+    .reverse()
+    .find((msg) => msg.role === "user");
+
   if (!lastUserMessage) {
-    return 'Hello';
+    return "Hello";
   }
-  
+
   // Extract content
   const content = Array.isArray(lastUserMessage.content)
-    ? lastUserMessage.content.filter((p) => p.type === 'text').map((p) => p.text).join('')
-    : lastUserMessage.content || '';
-    
+    ? lastUserMessage.content
+        .filter((p) => p.type === "text")
+        .map((p) => p.text)
+        .join("")
+    : lastUserMessage.content || "";
+
   return `User: ${content.trim()}`;
 };
 
@@ -190,15 +248,17 @@ const messagesToPrompt = (messages) => {
 
 const buildStreamChunk = (content, model, id) => ({
   id,
-  object: 'chat.completion.chunk',
+  object: "chat.completion.chunk",
   created: Math.floor(Date.now() / 1000),
   model,
-  choices: [{ index: 0, delta: { role: 'assistant', content }, finish_reason: null }],
+  choices: [
+    { index: 0, delta: { role: "assistant", content }, finish_reason: null },
+  ],
 });
 
-const buildDoneChunk = (model, id, finishReason = 'stop') => ({
+const buildDoneChunk = (model, id, finishReason = "stop") => ({
   id,
-  object: 'chat.completion.chunk',
+  object: "chat.completion.chunk",
   created: Math.floor(Date.now() / 1000),
   model,
   choices: [{ index: 0, delta: {}, finish_reason: finishReason }],
@@ -206,14 +266,14 @@ const buildDoneChunk = (model, id, finishReason = 'stop') => ({
 
 const buildFullChatResponse = (content, model, finishReason, id) => ({
   id,
-  object: 'chat.completion',
+  object: "chat.completion",
   created: Math.floor(Date.now() / 1000),
   model,
   choices: [
     {
       index: 0,
-      message: { role: 'assistant', content },
-      finish_reason: finishReason || 'stop',
+      message: { role: "assistant", content },
+      finish_reason: finishReason || "stop",
     },
   ],
   usage: { prompt_tokens: null, completion_tokens: null, total_tokens: null },
@@ -225,7 +285,7 @@ const buildFullChatResponse = (content, model, finishReason, id) => ({
 
 const buildCompletionStreamChunk = (text, model, id) => ({
   id,
-  object: 'text_completion_chunk',
+  object: "text_completion_chunk",
   created: Math.floor(Date.now() / 1000),
   model,
   choices: [{ index: 0, text, finish_reason: null }],
@@ -233,10 +293,10 @@ const buildCompletionStreamChunk = (text, model, id) => ({
 
 const buildFullCompletionResponse = (text, model, finishReason, id) => ({
   id,
-  object: 'text_completion',
+  object: "text_completion",
   created: Math.floor(Date.now() / 1000),
   model,
-  choices: [{ index: 0, text, finish_reason: finishReason || 'stop' }],
+  choices: [{ index: 0, text, finish_reason: finishReason || "stop" }],
   usage: { prompt_tokens: null, completion_tokens: null, total_tokens: null },
 });
 
@@ -247,70 +307,81 @@ const buildFullCompletionResponse = (text, model, finishReason, id) => ({
  */
 const extractToolCalls = (content) => {
   if (!Array.isArray(content)) return null;
-  
+
   const toolCalls = [];
   for (const item of content) {
-    if (item.type === 'function' && item.id && item.name && item.input) {
+    if (item.type === "function" && item.id && item.name && item.input) {
       toolCalls.push({
         id: item.id,
-        type: 'function',
+        type: "function",
         function: {
           name: item.name,
-          arguments: item.input
-        }
+          arguments: item.input,
+        },
       });
     }
   }
-  
+
   return toolCalls.length > 0 ? toolCalls : null;
 };
 
 /**
  * Build streaming chunk with tool calls
- * @param {Object} data - qodercli data object  
+ * @param {Object} data - qodercli data object
  * @param {string} model - model name
  * @param {string} id - completion id
  * @returns {Object} - OpenAI format streaming chunk
  */
 const buildToolCallStreamChunk = (data, model, id) => {
   const toolCalls = extractToolCalls(data.message?.content);
-  
+
   return {
     id,
-    object: 'chat.completion.chunk', 
+    object: "chat.completion.chunk",
     created: Math.floor(Date.now() / 1000),
     model,
-    choices: [{
-      index: 0,
-      delta: toolCalls ? { tool_calls: toolCalls } : {},
-      finish_reason: data.message?.status === 'tool_calling' ? null : 'tool_calls'
-    }]
+    choices: [
+      {
+        index: 0,
+        delta: toolCalls ? { tool_calls: toolCalls } : {},
+        finish_reason:
+          data.message?.status === "tool_calling" ? null : "tool_calls",
+      },
+    ],
   };
 };
 
 /**
  * Build full chat response with tool calls
  * @param {Array} toolCalls - Array of tool calls
- * @param {string} content - Text content 
+ * @param {string} content - Text content
  * @param {string} model - model name
  * @param {string} finishReason - finish reason
  * @param {string} id - completion id
  * @returns {Object} - OpenAI format response
  */
-const buildFullChatResponseWithTools = (toolCalls, content, model, finishReason, id) => ({
+const buildFullChatResponseWithTools = (
+  toolCalls,
+  content,
+  model,
+  finishReason,
   id,
-  object: 'chat.completion',
+) => ({
+  id,
+  object: "chat.completion",
   created: Math.floor(Date.now() / 1000),
   model,
-  choices: [{
-    index: 0,
-    message: {
-      role: 'assistant',
-      content: content || null,
-      tool_calls: toolCalls
+  choices: [
+    {
+      index: 0,
+      message: {
+        role: "assistant",
+        content: content || null,
+        tool_calls: toolCalls,
+      },
+      finish_reason: finishReason || (toolCalls ? "tool_calls" : "stop"),
     },
-    finish_reason: finishReason || (toolCalls ? 'tool_calls' : 'stop')
-  }],
+  ],
   usage: { prompt_tokens: null, completion_tokens: null, total_tokens: null },
 });
 

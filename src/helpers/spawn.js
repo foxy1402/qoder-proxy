@@ -1,21 +1,27 @@
-const { spawn } = require('child_process');
-const { addSystem } = require('../store/logStore');
+const { spawn } = require("child_process");
+const { addSystem } = require("../store/logStore");
 
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
 
 const spawnQoderCli = (prompt, model, flags = []) => {
-  if (process.platform === 'win32') {
-    const args = ['/c', 'qodercli.cmd', '-p', prompt, '-f', 'stream-json'];
-    if (model) args.push('--model', model);
+  if (process.platform === "win32") {
+    const args = ["/c", "qodercli.cmd", "-p", prompt, "-f", "stream-json"];
+    if (model) args.push("--model", model);
     if (flags.length) args.push(...flags);
-    return spawn('cmd.exe', args, { stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env } });
+    return spawn("cmd.exe", args, {
+      stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env },
+    });
   } else {
-    const args = ['-p', prompt, '-f', 'stream-json'];
-    if (model) args.push('--model', model);
+    const args = ["-p", prompt, "-f", "stream-json"];
+    if (model) args.push("--model", model);
     if (flags.length) args.push(...flags);
-    return spawn('qodercli', args, { stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env } });
+    return spawn("qodercli", args, {
+      stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env },
+    });
   }
 };
 
@@ -45,9 +51,17 @@ const parseStreamJsonLine = (line) => {
  *
  * @returns {ChildProcess} - so callers can kill() on client disconnect
  */
-const runQoderRequest = ({ prompt, model, flags = [], timeoutMs = 120_000, onChunk, onDone, onError }) => {
-  let buffer = '';
-  let stderrOutput = '';
+const runQoderRequest = ({
+  prompt,
+  model,
+  flags = [],
+  timeoutMs = 120_000,
+  onChunk,
+  onDone,
+  onError,
+}) => {
+  let buffer = "";
+  let stderrOutput = "";
   let settled = false;
   let timeoutHandle;
 
@@ -59,9 +73,9 @@ const runQoderRequest = ({ prompt, model, flags = [], timeoutMs = 120_000, onChu
   };
 
   const child = spawnQoderCli(prompt, model, flags);
-  
-  child.on('error', (err) => {
-    console.error('[qodercli error]', err.message);
+
+  child.on("error", (err) => {
+    console.error("[qodercli error]", err.message);
   });
 
   if (timeoutMs > 0) {
@@ -69,61 +83,80 @@ const runQoderRequest = ({ prompt, model, flags = [], timeoutMs = 120_000, onChu
       child.kill();
       settle(() =>
         onError(
-          Object.assign(new Error(`qodercli timed out after ${timeoutMs}ms`), { code: 'TIMEOUT' })
-        )
+          Object.assign(new Error(`qodercli timed out after ${timeoutMs}ms`), {
+            code: "TIMEOUT",
+          }),
+        ),
       );
     }, timeoutMs);
   }
 
-  let allData = '';
-  
-  child.stdout.on('data', (chunk) => {
-    allData += chunk.toString();
-  });
+  // ── KEY CHANGE: process stdout line-by-line as it arrives ──────────────────
+  child.stdout.on("data", (chunk) => {
+    buffer += chunk.toString();
+    const lines = buffer.split("\n");
+    // Keep the last incomplete line in the buffer
+    buffer = lines.pop() ?? "";
 
-  child.stdout.on('end', () => {
-    const lines = allData.trim().split('\n');
-    
     for (const line of lines) {
-      if (!line.trim()) continue;
-      
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+
       try {
-        const data = JSON.parse(line);
-        
-        if (data.type === 'assistant' && data.subtype === 'message') {
+        const data = JSON.parse(trimmed);
+        if (data.type === "assistant" && data.subtype === "message") {
           onChunk(data);
         }
-      } catch (e) {
-        // Handle plain text response (happens with conversation history)
-        const plainText = line.trim();
-        if (plainText && !plainText.startsWith('{')) {
-          // Create a fake message object for plain text responses
-          const fakeMessage = {
-            type: 'assistant',
-            subtype: 'message',
+      } catch {
+        // Plain text line (not JSON) — wrap it into a fake message object
+        if (trimmed && !trimmed.startsWith("{")) {
+          onChunk({
+            type: "assistant",
+            subtype: "message",
             message: {
-              content: [{ type: 'text', text: plainText }]
-            }
-          };
-          onChunk(fakeMessage);
+              content: [{ type: "text", text: trimmed }],
+            },
+          });
         }
-        continue;
       }
     }
   });
 
-  child.stderr.on('data', (chunk) => {
-    const text = chunk.toString().trim();
-    stderrOutput += text + '\n';
-    addSystem(text, 'error', 'qodercli-stderr');
+  // Flush any remaining buffer content when stdout closes
+  child.stdout.on("end", () => {
+    const trimmed = buffer.trim();
+    if (!trimmed) return;
+
+    try {
+      const data = JSON.parse(trimmed);
+      if (data.type === "assistant" && data.subtype === "message") {
+        onChunk(data);
+      }
+    } catch {
+      if (!trimmed.startsWith("{")) {
+        onChunk({
+          type: "assistant",
+          subtype: "message",
+          message: {
+            content: [{ type: "text", text: trimmed }],
+          },
+        });
+      }
+    }
   });
 
-  child.on('close', (code) => {
+  child.stderr.on("data", (chunk) => {
+    const text = chunk.toString().trim();
+    stderrOutput += text + "\n";
+    addSystem(text, "error", "qodercli-stderr");
+  });
+
+  child.on("close", (code) => {
     settle(() => onDone(code, stderrOutput.trim()));
   });
 
-  child.on('error', (err) => {
-    addSystem(err.message, 'error', 'qodercli-spawn');
+  child.on("error", (err) => {
+    addSystem(err.message, "error", "qodercli-spawn");
     settle(() => onError(err));
   });
 
@@ -140,21 +173,33 @@ const runQoderRequest = ({ prompt, model, flags = [], timeoutMs = 120_000, onChu
  */
 const checkQoderCli = () =>
   new Promise((resolve) => {
-    let out = '';
+    let out = "";
     let done = false;
-    const finish = (val) => { if (!done) { done = true; resolve(val); } };
+    const finish = (val) => {
+      if (!done) {
+        done = true;
+        resolve(val);
+      }
+    };
 
     const child =
-      process.platform === 'win32'
-        ? spawn('cmd.exe', ['/c', 'qodercli.cmd', '--version'], { stdio: ['ignore', 'pipe', 'pipe'] })
-        : spawn('qodercli', ['--version'], { stdio: ['ignore', 'pipe', 'pipe'] });
+      process.platform === "win32"
+        ? spawn("cmd.exe", ["/c", "qodercli.cmd", "--version"], {
+            stdio: ["ignore", "pipe", "pipe"],
+          })
+        : spawn("qodercli", ["--version"], {
+            stdio: ["ignore", "pipe", "pipe"],
+          });
 
-    child.stdout.on('data', (d) => (out += d.toString()));
-    child.on('close', (code) => finish(code === 0 ? out.trim() : null));
-    child.on('error', () => finish(null));
+    child.stdout.on("data", (d) => (out += d.toString()));
+    child.on("close", (code) => finish(code === 0 ? out.trim() : null));
+    child.on("error", () => finish(null));
 
     // Hard timeout of 5 s so startup is never blocked
-    setTimeout(() => { child.kill(); finish(null); }, 5000);
+    setTimeout(() => {
+      child.kill();
+      finish(null);
+    }, 5000);
   });
 
 module.exports = { runQoderRequest, checkQoderCli };

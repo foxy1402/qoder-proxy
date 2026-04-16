@@ -1,6 +1,6 @@
-const express = require('express');
-const { checkQoderCli } = require('../helpers/spawn');
-const { QODER_MODELS } = require('../helpers/format');
+const express = require("express");
+const { checkQoderCli } = require("../helpers/spawn");
+const { QODER_MODELS } = require("../helpers/format");
 
 const router = express.Router();
 
@@ -22,35 +22,87 @@ const router = express.Router();
  */
 const OPENAI_ALIASES = [
   // id → resolves-to  (mirrors ALIAS_MAP in format.js)
-  { id: 'gpt-4',            resolves_to: 'auto',        description: 'Alias → auto tier' },
-  { id: 'gpt-4-turbo',      resolves_to: 'auto',        description: 'Alias → auto tier' },
-  { id: 'gpt-4o',           resolves_to: 'auto',        description: 'Alias → auto tier' },
-  { id: 'gpt-4o-mini',      resolves_to: 'lite',        description: 'Alias → lite tier' },
-  { id: 'gpt-3.5-turbo',    resolves_to: 'lite',        description: 'Alias → lite tier' },
-  { id: 'o1',               resolves_to: 'ultimate',    description: 'Alias → ultimate tier' },
-  { id: 'o1-mini',          resolves_to: 'performance', description: 'Alias → performance tier' },
-  { id: 'o3-mini',          resolves_to: 'performance', description: 'Alias → performance tier' },
-  { id: 'claude-3-opus',    resolves_to: 'ultimate',    description: 'Alias → ultimate tier' },
-  { id: 'claude-3-sonnet',  resolves_to: 'performance', description: 'Alias → performance tier' },
-  { id: 'claude-3-haiku',   resolves_to: 'lite',        description: 'Alias → lite tier' },
-  { id: 'claude-3.5-sonnet',resolves_to: 'auto',        description: 'Alias → auto tier' },
-  { id: 'claude-3.5-haiku', resolves_to: 'efficient',   description: 'Alias → efficient tier' },
-  { id: 'claude-3.7-sonnet',resolves_to: 'auto',        description: 'Alias → auto tier' },
-  { id: 'gemini-pro',       resolves_to: 'performance', description: 'Alias → performance tier' },
-  { id: 'gemini-flash',     resolves_to: 'efficient',   description: 'Alias → efficient tier' },
-  { id: 'qwen',             resolves_to: 'qmodel',      description: 'Alias → Qwen new model' },
-  { id: 'qwen-3.5',         resolves_to: 'q35model',    description: 'Alias → Qwen 3.5 new model' },
-  { id: 'glm',              resolves_to: 'gmodel',      description: 'Alias → GLM new model' },
-  { id: 'kimi',             resolves_to: 'kmodel',      description: 'Alias → Kimi new model' },
-  { id: 'minimax',          resolves_to: 'mmodel',      description: 'Alias → MiniMax new model' },
+  { id: "gpt-4", resolves_to: "auto", description: "Alias → auto tier" },
+  { id: "gpt-4-turbo", resolves_to: "auto", description: "Alias → auto tier" },
+  { id: "gpt-4o", resolves_to: "auto", description: "Alias → auto tier" },
+  { id: "gpt-4o-mini", resolves_to: "lite", description: "Alias → lite tier" },
+  {
+    id: "gpt-3.5-turbo",
+    resolves_to: "lite",
+    description: "Alias → lite tier",
+  },
+  { id: "o1", resolves_to: "ultimate", description: "Alias → ultimate tier" },
+  {
+    id: "o1-mini",
+    resolves_to: "performance",
+    description: "Alias → performance tier",
+  },
+  {
+    id: "o3-mini",
+    resolves_to: "performance",
+    description: "Alias → performance tier",
+  },
+  {
+    id: "claude-3-opus",
+    resolves_to: "ultimate",
+    description: "Alias → ultimate tier",
+  },
+  {
+    id: "claude-3-sonnet",
+    resolves_to: "performance",
+    description: "Alias → performance tier",
+  },
+  {
+    id: "claude-3-haiku",
+    resolves_to: "lite",
+    description: "Alias → lite tier",
+  },
+  {
+    id: "claude-3.5-sonnet",
+    resolves_to: "auto",
+    description: "Alias → auto tier",
+  },
+  {
+    id: "claude-3.5-haiku",
+    resolves_to: "efficient",
+    description: "Alias → efficient tier",
+  },
+  {
+    id: "claude-3.7-sonnet",
+    resolves_to: "auto",
+    description: "Alias → auto tier",
+  },
+  {
+    id: "gemini-pro",
+    resolves_to: "performance",
+    description: "Alias → performance tier",
+  },
+  {
+    id: "gemini-flash",
+    resolves_to: "efficient",
+    description: "Alias → efficient tier",
+  },
+  { id: "qwen", resolves_to: "qmodel", description: "Alias → Qwen new model" },
+  {
+    id: "qwen-3.5",
+    resolves_to: "q35model",
+    description: "Alias → Qwen 3.5 new model",
+  },
+  { id: "glm", resolves_to: "gmodel", description: "Alias → GLM new model" },
+  { id: "kimi", resolves_to: "kmodel", description: "Alias → Kimi new model" },
+  {
+    id: "minimax",
+    resolves_to: "mmodel",
+    description: "Alias → MiniMax new model",
+  },
 ];
 
 const TS = 1700000000;
 
-router.get('/models', (_req, res) => {
+router.get("/models", (_req, res) => {
   const nativeModels = QODER_MODELS.map((m) => ({
     id: m.id,
-    object: 'model',
+    object: "model",
     created: TS,
     owned_by: `qoder-${m.tier}`,
     qoder: {
@@ -63,33 +115,33 @@ router.get('/models', (_req, res) => {
 
   const aliasModels = OPENAI_ALIASES.map((a) => ({
     id: a.id,
-    object: 'model',
+    object: "model",
     created: TS,
-    owned_by: 'qoder-alias',
+    owned_by: "qoder-alias",
     qoder: {
       label: a.id,
-      tier: 'alias',
+      tier: "alias",
       description: a.description,
       resolves_to: a.resolves_to,
       is_alias: true,
     },
   }));
 
-  res.json({ object: 'list', data: [...nativeModels, ...aliasModels] });
+  res.json({ object: "list", data: [...nativeModels, ...aliasModels] });
 });
 
 // ---------------------------------------------------------------------------
 // POST /v1/embeddings — not supported
 // ---------------------------------------------------------------------------
 
-router.post('/embeddings', (_req, res) => {
+router.post("/embeddings", (_req, res) => {
   res.status(501).json({
     error: {
       message:
-        'Embeddings are not supported. qodercli does not generate embeddings. ' +
-        'Use OpenAI, Cohere, or a local model (Ollama / sentence-transformers) instead.',
-      type: 'not_implemented_error',
-      code: 'endpoint_not_supported',
+        "Embeddings are not supported. qodercli does not generate embeddings. " +
+        "Use OpenAI, Cohere, or a local model (Ollama / sentence-transformers) instead.",
+      type: "not_implemented_error",
+      code: "endpoint_not_supported",
     },
   });
 });
@@ -101,10 +153,24 @@ router.post('/embeddings', (_req, res) => {
 const healthHandler = async (_req, res) => {
   const version = await checkQoderCli();
   res.status(version ? 200 : 503).json({
-    status: version ? 'ok' : 'degraded',
-    qodercli: version || 'unavailable',
+    status: version ? "ok" : "degraded",
+    qodercli: version || "unavailable",
     timestamp: new Date().toISOString(),
   });
 };
+
+// ---------------------------------------------------------------------------
+// Catch-all for unknown /v1/* routes
+// ---------------------------------------------------------------------------
+
+router.use((req, res) => {
+  res.status(404).json({
+    error: {
+      message: `Unknown endpoint: ${req.method} /v1${req.path}. See GET /v1/models for available endpoints.`,
+      type: "invalid_request_error",
+      code: "endpoint_not_found",
+    },
+  });
+});
 
 module.exports = { router, healthHandler };
