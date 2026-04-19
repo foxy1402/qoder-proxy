@@ -214,32 +214,55 @@ const getModelMapping = (requestedModel) => {
 // ---------------------------------------------------------------------------
 
 /**
- * Convert an OpenAI messages array into a single prompt string.
+ * Convert an OpenAI messages array into a single prompt string for qodercli.
  *
- * For better qodercli compatibility, we only send the latest user message
- * instead of full conversation history, as qodercli responds better to
- * individual prompts than conversation threads.
+ * Includes conversation history (up to last 10 messages) so the model has
+ * context for follow-up questions and multi-turn edits. Older messages are
+ * dropped to avoid exceeding qodercli's context limits.
+ *
+ * Format:
+ *   System: <system message if present>
+ *   User: <message>
+ *   Assistant: <message>
+ *   User: <latest message>
  */
 const messagesToPrompt = (messages) => {
-  // Find the last user message
-  const lastUserMessage = messages
-    .slice()
-    .reverse()
-    .find((msg) => msg.role === "user");
+  if (!messages || messages.length === 0) return "Hello";
 
-  if (!lastUserMessage) {
-    return "Hello";
-  }
+  // Separate system message from conversation
+  const systemMsg = messages.find((m) => m.role === "system");
+  const conversation = messages.filter((m) => m.role !== "system");
 
-  // Extract content
-  const content = Array.isArray(lastUserMessage.content)
-    ? lastUserMessage.content
+  // Keep last 10 conversation turns to avoid context overflow
+  const recent = conversation.slice(-10);
+
+  const extractContent = (msg) => {
+    if (Array.isArray(msg.content)) {
+      return msg.content
         .filter((p) => p.type === "text")
         .map((p) => p.text)
-        .join("")
-    : lastUserMessage.content || "";
+        .join("");
+    }
+    return msg.content || "";
+  };
 
-  return `User: ${content.trim()}`;
+  const parts = [];
+
+  // Include system message if present
+  if (systemMsg) {
+    const sysContent = extractContent(systemMsg);
+    if (sysContent.trim()) parts.push(`System: ${sysContent.trim()}`);
+  }
+
+  // Include conversation history
+  for (const msg of recent) {
+    const content = extractContent(msg).trim();
+    if (!content) continue;
+    if (msg.role === "user") parts.push(`User: ${content}`);
+    else if (msg.role === "assistant") parts.push(`Assistant: ${content}`);
+  }
+
+  return parts.join("\n\n") || "Hello";
 };
 
 // ---------------------------------------------------------------------------

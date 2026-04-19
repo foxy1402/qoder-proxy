@@ -61,22 +61,34 @@ const buildPromptWithTools = (messages, tools, messagesToPromptFn) => {
 
   const toolSystem = buildToolSystemPrompt(tools);
 
-  // Find existing system message and prepend tool instructions to it,
-  // or insert a new system message at the start
-  const existingSystemIdx = messages.findIndex((m) => m.role === 'system');
-  let augmented;
+  // Extract the last user message directly — bypasses messagesToPrompt entirely
+  // because messagesToPrompt drops system messages and we need to include tool instructions.
+  const lastUser = messages
+    .slice()
+    .reverse()
+    .find((m) => m.role === 'user');
 
-  if (existingSystemIdx !== -1) {
-    augmented = messages.map((m, i) =>
-      i === existingSystemIdx
-        ? { ...m, content: `${toolSystem}\n\n${m.content}` }
-        : m
-    );
-  } else {
-    augmented = [{ role: 'system', content: toolSystem }, ...messages];
-  }
+  const userContent = Array.isArray(lastUser?.content)
+    ? lastUser.content
+        .filter((p) => p.type === 'text')
+        .map((p) => p.text)
+        .join('')
+    : lastUser?.content || '';
 
-  return messagesToPromptFn(augmented);
+  // Also extract any existing system message to include alongside tool instructions
+  const existingSystem = messages.find((m) => m.role === 'system');
+  const systemContent = existingSystem
+    ? Array.isArray(existingSystem.content)
+      ? existingSystem.content.filter((p) => p.type === 'text').map((p) => p.text).join('')
+      : existingSystem.content || ''
+    : '';
+
+  // Build final prompt: tool instructions + optional system context + user message
+  const parts = [toolSystem];
+  if (systemContent) parts.push(`System context: ${systemContent.trim()}`);
+  parts.push(`User: ${userContent.trim()}`);
+
+  return parts.join('\n\n');
 };
 
 // ── Response parsing ──────────────────────────────────────────────────────────

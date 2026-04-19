@@ -155,15 +155,19 @@ router.post("/", (req, res) => {
         if (finishReason) lastFinishReason = finishReason;
         if (content) {
           fullStreamText += content;
-          // Stream content chunks normally — tool call detection happens onDone
-          const chunk = {
-            id,
-            object: "chat.completion.chunk",
-            created: Math.floor(Date.now() / 1000),
-            model,
-            choices: [{ index: 0, delta: { content }, finish_reason: null }],
-          };
-          res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+          // When tools are present: accumulate silently, don't stream raw text chunks.
+          // The response will be emitted as a proper tool_calls chunk in onDone.
+          // When no tools: stream content immediately as normal.
+          if (!hasTools) {
+            const chunk = {
+              id,
+              object: "chat.completion.chunk",
+              created: Math.floor(Date.now() / 1000),
+              model,
+              choices: [{ index: 0, delta: { content }, finish_reason: null }],
+            };
+            res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+          }
         }
       },
       onDone: (code, stderr) => {
