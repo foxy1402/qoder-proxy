@@ -156,8 +156,12 @@ const runQoderRequest = ({
     addSystem(text, "error", "qodercli-stderr");
   });
 
-  child.on("close", (code) => {
-    settle(() => onDone(code, stderrOutput.trim()));
+  child.on("close", (code, signal) => {
+    const finalCode = code == null && signal ? -1 : code;
+    const finalStderr = signal
+      ? `${stderrOutput.trim()}${stderrOutput.trim() ? "\n" : ""}Process terminated by signal: ${signal}`
+      : stderrOutput.trim();
+    settle(() => onDone(finalCode, finalStderr));
   });
 
   child.on("error", (err) => {

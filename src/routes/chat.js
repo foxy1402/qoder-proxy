@@ -138,6 +138,7 @@ router.post("/", (req, res) => {
     // Accumulate full text so we can detect tool calls at the end
     let fullStreamText = "";
 
+    let clientAborted = false;
     const child = runQoderRequest({
       prompt,
       model,
@@ -173,6 +174,7 @@ router.post("/", (req, res) => {
         }
       },
       onDone: (code, stderr) => {
+        if (clientAborted || res.writableEnded) return;
         if (code !== 0) {
           console.error(
             "[chat/completions] qodercli exit code:",
@@ -213,6 +215,7 @@ router.post("/", (req, res) => {
         res.end();
       },
       onError: (err) => {
+        if (clientAborted || res.writableEnded) return;
         console.error("[chat/completions] error:", err.message);
         res.write(
           `data: ${JSON.stringify({ error: { message: err.message, type: err.code === "TIMEOUT" ? "timeout_error" : "api_error" } })}\n\n`,
@@ -221,19 +224,21 @@ router.post("/", (req, res) => {
       },
     });
 
-    req.on("close", () => {
+    req.on("aborted", () => {
+      clientAborted = true;
       console.log(
         "[Stream] Client disconnected at",
         Date.now() - streamStartTime,
         "ms",
       );
-      child.kill();
+      if (!res.writableEnded) child.kill();
     });
   } else {
     // Non-streaming path
     let fullContent = "";
     let finishReason = "stop";
     let allToolCalls = [];
+    let clientAborted = false;
 
     const child = runQoderRequest({
       prompt,
@@ -251,6 +256,7 @@ router.post("/", (req, res) => {
         if (data.message?.stop_reason) finishReason = data.message.stop_reason;
       },
       onDone: (code, stderr) => {
+        if (clientAborted || res.writableEnded) return;
         if (code !== 0) {
           return res.status(500).json({
             error: {
@@ -287,6 +293,7 @@ router.post("/", (req, res) => {
         }
       },
       onError: (err) => {
+        if (clientAborted || res.writableEnded) return;
         res.status(err.code === "TIMEOUT" ? 504 : 500).json({
           error: {
             message: err.message,
@@ -296,9 +303,11 @@ router.post("/", (req, res) => {
       },
     });
 
-    // Clean up if client disconnects during non-streaming response
-    req.on("close", () => {
-      if (!res.headersSent) child.kill();
+    // Clean up only on real client aborts during non-streaming response.
+    // req "close" can fire after normal request completion and would kill too early.
+    req.on("aborted", () => {
+      clientAborted = true;
+      if (!res.writableEnded) child.kill();
     });
   }
 });

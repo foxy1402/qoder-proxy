@@ -52,6 +52,7 @@ router.post('/', (req, res) => {
     };
     res.write(`data: ${JSON.stringify(initialChunk)}\n\n`);
 
+    let clientAborted = false;
     const child = runQoderRequest({
       prompt,
       model,
@@ -64,20 +65,26 @@ router.post('/', (req, res) => {
         }
       },
       onDone: (_code, _stderr) => {
+        if (clientAborted || res.writableEnded) return;
         res.write('data: [DONE]\n\n');
         res.end();
       },
       onError: (err) => {
+        if (clientAborted || res.writableEnded) return;
         console.error('[completions]', err.message);
         res.write(`data: ${JSON.stringify({ error: { message: err.message } })}\n\n`);
         res.end();
       },
     });
 
-    req.on('close', () => child.kill());
+    req.on('aborted', () => {
+      clientAborted = true;
+      if (!res.writableEnded) child.kill();
+    });
   } else {
     let fullText = '';
     let finishReason = 'stop';
+    let clientAborted = false;
 
     const child = runQoderRequest({
       prompt,
@@ -89,6 +96,7 @@ router.post('/', (req, res) => {
         if (data.message?.stop_reason) finishReason = data.message.stop_reason;
       },
       onDone: (code, stderr) => {
+        if (clientAborted || res.writableEnded) return;
         if (code !== 0) {
           return res.status(500).json({
             error: { message: `qodercli exited with code ${code}`, type: 'api_error', details: stderr },
@@ -97,14 +105,17 @@ router.post('/', (req, res) => {
         res.json(buildFullCompletionResponse(fullText, model, finishReason, id));
       },
       onError: (err) => {
+        if (clientAborted || res.writableEnded) return;
         res.status(err.code === 'TIMEOUT' ? 504 : 500).json({
           error: { message: err.message, type: err.code === 'TIMEOUT' ? 'timeout_error' : 'api_error' },
         });
       },
     });
 
-    // For non-streaming, don't kill on client disconnect - let it complete  
-    // req.on('close', () => child.kill());
+    req.on('aborted', () => {
+      clientAborted = true;
+      if (!res.writableEnded) child.kill();
+    });
   }
 });
 
