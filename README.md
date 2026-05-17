@@ -80,7 +80,12 @@ The proxy intelligently maps model names to Qoder CLI tiers using a multi-tier r
 | `o1-mini`, `o3-mini`, `claude-3-sonnet`| `performance` |
 | `claude-3.5-haiku`, `gemini-flash` | `efficient` |
 | `gpt-3.5-turbo`, `gpt-4o-mini`, `claude-3-haiku` | `lite` |
-| *(Qoder native)* `qwen`, `kimi`, `glm`| `qmodel`, `kmodel`, `gmodel` |
+| *(Qoder native)* `qwen`, `qwen36plus` | `qmodel` (Qwen3.6-Plus) |
+| *(Qoder native)* `deepseek`, `deepseek-v4` | `dmodel` (DeepSeek-V4-Pro) |
+| *(Qoder native)* `deepseek-v4-flash` | `dfmodel` (DeepSeek-V4-Flash) |
+| *(Qoder native)* `kimi` | `kmodel` (Kimi-K2.6) |
+| *(Qoder native)* `minimax` | `mmodel` (MiniMax-M2.7) |
+| *(Qoder native)* `glm`, `glm51` | `gm51model` (GLM-5.1) |
 
 **Note**: You're getting responses from Qoder's AI models, not OpenAI or Anthropic. The name mapping is purely for compatibility with tools that expect standard model names.
 
