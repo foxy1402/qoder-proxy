@@ -1,7 +1,8 @@
 FROM node:20-alpine
 
 # Install qodercli globally — uses QODER_PERSONAL_ACCESS_TOKEN env var at runtime for auth
-RUN npm install -g @qoder-ai/qodercli
+RUN npm install -g @qoder-ai/qodercli \
+  && qodercli --version || true
 
 WORKDIR /app
 

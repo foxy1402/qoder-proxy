@@ -9,9 +9,7 @@ const spawnQoderCli = (prompt, model, flags = []) => {
   if (process.platform === "win32") {
     // On Windows, pass a cmd-safe prompt to avoid shell interpretation of
     // special characters (&, |, >, <, ^, ").
-    const safePrompt = prompt
-      .replace(/"/g, '\\"')
-      .replace(/[&|<>^]/g, "^$&");
+    const safePrompt = prompt.replace(/"/g, '\\"').replace(/[&|<>^]/g, "^$&");
     const args = ["/c", "qodercli.cmd", "-p", safePrompt, "-f", "stream-json"];
     if (model) args.push("--model", model);
     if (flags.length) args.push(...flags);
@@ -182,7 +180,8 @@ const runQoderRequest = ({
  */
 const checkQoderCli = () =>
   new Promise((resolve) => {
-    let out = "";
+    let stdout = "";
+    let stderr = "";
     let done = false;
     const finish = (val) => {
       if (!done) {
@@ -200,9 +199,21 @@ const checkQoderCli = () =>
             stdio: ["ignore", "pipe", "pipe"],
           });
 
-    child.stdout.on("data", (d) => (out += d.toString()));
-    child.on("close", (code) => finish(code === 0 ? out.trim() : null));
-    child.on("error", () => finish(null));
+    child.stdout.on("data", (d) => (stdout += d.toString()));
+    child.stderr.on("data", (d) => (stderr += d.toString()));
+
+    child.on("close", (code) => {
+      // Prefer stdout, fall back to stderr (some CLIs write version there).
+      // Accept any non-empty output regardless of exit code — a non-zero exit
+      // just means auth/config failed, not that the binary is missing.
+      const version = (stdout || stderr).trim();
+      finish(version || (code !== null ? "installed" : null));
+    });
+
+    // ENOENT = binary genuinely not on PATH; any other error still means it exists
+    child.on("error", (err) => {
+      finish(err.code === "ENOENT" ? null : "installed");
+    });
 
     // Hard timeout of 5 s so startup is never blocked
     setTimeout(() => {
