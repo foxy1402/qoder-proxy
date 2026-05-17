@@ -89,11 +89,22 @@ const OPENAI_ALIASES = [
     description: "Alias → DeepSeek-V4-Pro",
   },
   {
-    id: "deepseek-flash",
+    id: "deepseek-v4",
+    resolves_to: "dmodel",
+    description: "Alias → DeepSeek-V4-Pro",
+  },
+  {
+    id: "deepseek-v4-flash",
     resolves_to: "dfmodel",
     description: "Alias → DeepSeek-V4-Flash",
   },
   { id: "glm", resolves_to: "gm51model", description: "Alias → GLM-5.1" },
+  { id: "glm51", resolves_to: "gm51model", description: "Alias → GLM-5.1" },
+  {
+    id: "qwen36plus",
+    resolves_to: "qmodel",
+    description: "Alias → Qwen3.6-Plus",
+  },
   { id: "kimi", resolves_to: "kmodel", description: "Alias → Kimi-K2.6" },
   {
     id: "minimax",
