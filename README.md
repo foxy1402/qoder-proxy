@@ -5,7 +5,7 @@ Use Qoder through any tool or library designed for OpenAI's API.
 
 ## Features
 
-- **🔌 OpenAI-Compatible**: Drop-in API replacement for apps like Cursor, Cline, LangChain, and Open WebUI
+- ✅ **🔌 OpenAI-Compatible**: Drop-in API replacement for apps like LangChain and Open WebUI
 - **💬 Full Chat Support**: Support for `/v1/chat/completions` (system messages, multi-turn history)
 - **🛠 OpenAI Tool Calling**: Full support for OpenAI-style function calling with custom tool definitions—works with any IDE or library that uses tools/functions
 - **⚡ Streaming**: Real-time SSE streaming responses without lag
@@ -189,10 +189,9 @@ When the AI decides to use a tool, you'll receive:
 
 The proxy converts your OpenAI tool definitions into natural language instructions for Qoder's AI, then parses the model's response back into OpenAI's `tool_calls` format. This works with:
 
-- ✅ **Cursor IDE** - Full code editing tool support
-- ✅ **Continue.dev** - Custom function calling
 - ✅ **LangChain** - Agent tool chains
 - ✅ **Any OpenAI SDK** - Standard function calling
+- ⚠️ **Cursor IDE / Continue.dev / Zed** - See known limitations below
 
 Both streaming and non-streaming modes are fully supported!
 
@@ -202,16 +201,28 @@ Both streaming and non-streaming modes are fully supported!
 - **Token usage**: Token counting is not available—`usage` fields in responses return `null`.
 - **Tool execution**: The proxy returns tool call requests in OpenAI format, but doesn't automatically execute them. Your application must handle tool execution and send results back (standard OpenAI tool calling flow).
 
+### ❌ Known Limitation — Coding IDEs Not Yet Supported
+
+The following tools have been tested and are **not currently compatible** with this proxy:
+
+| Tool | Status | Reason |
+|---|---|---|
+| **Cursor IDE** | ❌ Not working | IDE-specific handshake / protocol extensions not supported |
+| **Zed Editor** | ❌ Not working | IDE-specific handshake / protocol extensions not supported |
+| **Continue.dev** | ❌ Not working | IDE-specific handshake / protocol extensions not supported |
+
+This is a known, unresolved limitation. A patch has not been implemented yet. If you need AI assistance inside your editor, use Qoder's native extensions where available.
+
 ## ✅ Verified Compatible
 
 The proxy has been tested and works with:
 
-- ✅ **Cursor IDE** - Streaming, tool calling, code editing
-- ✅ **Zed Editor** - Real-time streaming (< 100ms first chunk)
-- ✅ **Continue.dev** - Full function calling support
 - ✅ **OpenAI Python SDK** - All standard features
 - ✅ **LangChain** - Agent chains and tool calling
 - ✅ **Open WebUI** - Chat interface integration
+- ❌ **Cursor IDE** - Not working (see known limitations above)
+- ❌ **Zed Editor** - Not working (see known limitations above)
+- ❌ **Continue.dev** - Not working (see known limitations above)
 
 ## License
 MIT
