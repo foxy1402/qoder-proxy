@@ -25,11 +25,11 @@ const OPENAI_ALIASES = [
   { id: "gpt-4", resolves_to: "auto", description: "Alias → auto tier" },
   { id: "gpt-4-turbo", resolves_to: "auto", description: "Alias → auto tier" },
   { id: "gpt-4o", resolves_to: "auto", description: "Alias → auto tier" },
-  { id: "gpt-4o-mini", resolves_to: "lite", description: "Alias → lite tier" },
+  { id: "gpt-4o-mini", resolves_to: "auto", description: "Alias → auto tier" },
   {
     id: "gpt-3.5-turbo",
-    resolves_to: "lite",
-    description: "Alias → lite tier",
+    resolves_to: "auto",
+    description: "Alias → auto tier",
   },
   { id: "o1", resolves_to: "ultimate", description: "Alias → ultimate tier" },
   {
@@ -54,8 +54,8 @@ const OPENAI_ALIASES = [
   },
   {
     id: "claude-3-haiku",
-    resolves_to: "lite",
-    description: "Alias → lite tier",
+    resolves_to: "auto",
+    description: "Alias → auto tier",
   },
   {
     id: "claude-3.5-sonnet",
@@ -64,8 +64,8 @@ const OPENAI_ALIASES = [
   },
   {
     id: "claude-3.5-haiku",
-    resolves_to: "efficient",
-    description: "Alias → efficient tier",
+    resolves_to: "performance",
+    description: "Alias → performance tier",
   },
   {
     id: "claude-3.7-sonnet",

@@ -65,18 +65,6 @@ const QODER_MODELS = [
     tier: "new",
     description: "New model — Qwen 3.6 Plus (Alibaba).",
   },
-  {
-    id: "lite",
-    label: "Lite",
-    tier: "free",
-    description: "Free tier — fast, lightweight model for everyday tasks.",
-  },
-  {
-    id: "efficient",
-    label: "Efficient",
-    tier: "paid",
-    description: "Paid tier — optimised for speed and cost efficiency.",
-  },
   // ── Quest scene models ────────────────────────────────────────────────────
   {
     id: "kmodel",
@@ -120,9 +108,9 @@ const QODER_MODEL_BY_ID = Object.fromEntries(
  *
  * Mapping philosophy:
  *   - gpt-4o / gpt-4 class  → 'auto'  (best balanced paid tier)
- *   - gpt-4o-mini / 3.5     → 'lite'  (lightweight free tier)
+ *   - gpt-4o-mini / 3.5     → 'auto'
  *   - claude-3.5-sonnet      → 'auto'
- *   - claude-3-haiku         → 'lite'
+ *   - claude-3-haiku         → 'auto'
  *   - Direct qodercli names pass through unchanged.
  */
 const ALIAS_MAP = {
@@ -134,12 +122,12 @@ const ALIAS_MAP = {
   "o1-mini": "performance",
   "o3-mini": "performance",
   // Lightweight → lite
-  "gpt-4o-mini": "lite",
-  "gpt-3.5-turbo": "lite",
+  "gpt-4o-mini": "auto",
+  "gpt-3.5-turbo": "auto",
   // Claude aliases
   "claude-3-opus": "ultimate",
   "claude-3-sonnet": "performance",
-  "claude-3-haiku": "lite",
+  "claude-3-haiku": "auto",
   "claude-3.5-sonnet": "auto",
   "claude-3.5-haiku": "efficient",
   "claude-3.7-sonnet": "auto",
@@ -172,7 +160,7 @@ const ALIAS_MAP = {
  *   4. Unknown → fall back to 'lite' with a console warning
  */
 const getModelMapping = (requestedModel) => {
-  if (!requestedModel) return "lite";
+  if (!requestedModel) return "auto";
 
   // 1. Direct qodercli model id
   if (QODER_MODEL_BY_ID[requestedModel]) return requestedModel;
@@ -183,20 +171,24 @@ const getModelMapping = (requestedModel) => {
   // 3. Heuristic partial matching for model families
   const lower = requestedModel.toLowerCase();
 
+  // Backward compatibility for old proxy model names.
+  if (lower === "lite") return "auto";
+  if (lower === "efficient") return "performance";
+
   // Claude family heuristics
   if (lower.includes("claude")) {
     if (lower.includes("opus")) return "ultimate";
-    if (lower.includes("haiku")) return "efficient";
+    if (lower.includes("haiku")) return "auto";
     // sonnet and anything else in claude family → auto
     return "auto";
   }
   // GPT-4 family
   if (lower.includes("gpt-4") || lower.includes("gpt4")) {
-    if (lower.includes("mini")) return "lite";
+    if (lower.includes("mini")) return "auto";
     return "auto";
   }
   // GPT-3.5 family
-  if (lower.includes("gpt-3") || lower.includes("gpt3")) return "lite";
+  if (lower.includes("gpt-3") || lower.includes("gpt3")) return "auto";
   // o1/o3 reasoning models
   if (/^o\d/.test(lower)) {
     if (lower.includes("mini")) return "performance";
@@ -229,11 +221,11 @@ const getModelMapping = (requestedModel) => {
   // Qwen family
   if (lower.includes("qwen-3.6-plus")) return "qmodel";
 
-  // 4. Unknown model — warn and fall back to lite
+  // 4. Unknown model — warn and fall back to auto
   console.warn(
-    `[model] Unknown model "${requestedModel}" — falling back to "lite". Add an alias in ALIAS_MAP to suppress this warning.`,
+    `[model] Unknown model "${requestedModel}" — falling back to "auto". Add an alias in ALIAS_MAP to suppress this warning.`,
   );
-  return "lite";
+  return "auto";
 };
 
 // ---------------------------------------------------------------------------

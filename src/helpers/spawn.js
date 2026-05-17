@@ -118,7 +118,10 @@ const runQoderRequest = ({
 
       try {
         const data = JSON.parse(trimmed);
-        if (data.type === "assistant" && data.subtype === "message") {
+        if (
+          data.type === "assistant" &&
+          (data.subtype === "message" || data.message?.type === "message")
+        ) {
           onChunk(data);
         }
       } catch {
@@ -143,7 +146,10 @@ const runQoderRequest = ({
 
     try {
       const data = JSON.parse(trimmed);
-      if (data.type === "assistant" && data.subtype === "message") {
+      if (
+        data.type === "assistant" &&
+        (data.subtype === "message" || data.message?.type === "message")
+      ) {
         onChunk(data);
       }
     } catch {
