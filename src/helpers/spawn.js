@@ -1,5 +1,16 @@
 const { spawn } = require("child_process");
 const { addSystem } = require("../store/logStore");
+const config = require("../config");
+
+// Build the environment for every qodercli child process.
+// config.QODER_PAT normalises both QODER_PERSONAL_ACCESS_TOKEN and QODER_API_KEY,
+// so we always pass it under the name qodercli actually looks for.
+const qoderEnv = () => ({
+  ...process.env,
+  ...(config.QODER_PAT
+    ? { QODER_PERSONAL_ACCESS_TOKEN: config.QODER_PAT }
+    : {}),
+});
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -15,7 +26,7 @@ const spawnQoderCli = (prompt, model, flags = []) => {
     if (flags.length) args.push(...flags);
     return spawn("cmd.exe", args, {
       stdio: ["ignore", "pipe", "pipe"],
-      env: { ...process.env },
+      env: qoderEnv(),
     });
   } else {
     const args = ["-p", prompt, "-f", "stream-json"];
@@ -23,7 +34,7 @@ const spawnQoderCli = (prompt, model, flags = []) => {
     if (flags.length) args.push(...flags);
     return spawn("qodercli", args, {
       stdio: ["ignore", "pipe", "pipe"],
-      env: { ...process.env },
+      env: qoderEnv(),
     });
   }
 };
@@ -194,9 +205,11 @@ const checkQoderCli = () =>
       process.platform === "win32"
         ? spawn("cmd.exe", ["/c", "qodercli.cmd", "--version"], {
             stdio: ["ignore", "pipe", "pipe"],
+            env: qoderEnv(),
           })
         : spawn("qodercli", ["--version"], {
             stdio: ["ignore", "pipe", "pipe"],
+            env: qoderEnv(),
           });
 
     child.stdout.on("data", (d) => (stdout += d.toString()));
