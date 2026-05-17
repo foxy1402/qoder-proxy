@@ -61,15 +61,21 @@ const QODER_MODELS = [
   },
   {
     id: "qmodel",
-    label: "Qwen-Max",
+    label: "Qwen3.6-Plus",
     tier: "new",
-    description: "New model — Qwen-Max series (Alibaba).",
+    description: "New model — Qwen 3.6 Plus (Alibaba).",
   },
   {
-    id: "q35model",
-    label: "Qwen3.5-Plus",
+    id: "dmodel",
+    label: "DeepSeek-V4-Pro",
     tier: "new",
-    description: "New model — Qwen 3.5 Plus (Alibaba).",
+    description: "New model — DeepSeek V4 Pro, reasoning-capable.",
+  },
+  {
+    id: "dfmodel",
+    label: "DeepSeek-V4-Flash",
+    tier: "new",
+    description: "New model — DeepSeek V4 Flash, fast and lightweight.",
   },
   {
     id: "lite",
@@ -85,16 +91,16 @@ const QODER_MODELS = [
   },
   // ── Quest scene models ────────────────────────────────────────────────────
   {
-    id: "gmodel",
-    label: "GLM-5",
+    id: "gm51model",
+    label: "GLM-5.1",
     tier: "new",
-    description: "New model — GLM-5 series (Zhipu AI).",
+    description: "New model — GLM-5.1 series (Zhipu AI), reasoning-capable.",
   },
   {
     id: "kmodel",
-    label: "Kimi-K2.5",
+    label: "Kimi-K2.6",
     tier: "new",
-    description: "New model — Kimi-K2.5 (Moonshot AI).",
+    description: "New model — Kimi-K2.6 (Moonshot AI).",
   },
   {
     id: "mmodel",
@@ -142,8 +148,11 @@ const ALIAS_MAP = {
   "gemini-flash": "efficient",
   // Friendly names for "new model" tier
   qwen: "qmodel",
-  "qwen-3.5": "q35model",
-  glm: "gmodel",
+  deepseek: "dmodel",
+  "deepseek-flash": "dfmodel",
+  "deepseek-v4": "dmodel",
+  "deepseek-v4-flash": "dfmodel",
+  glm: "gm51model",
   kimi: "kmodel",
   minimax: "mmodel",
 };
@@ -195,10 +204,15 @@ const getModelMapping = (requestedModel) => {
   }
   // Qwen family
   if (lower.includes("qwen")) return "qmodel";
+  // DeepSeek family
+  if (lower.includes("deepseek")) {
+    if (lower.includes("flash")) return "dfmodel";
+    return "dmodel";
+  }
   // Kimi / Moonshot
   if (lower.includes("kimi") || lower.includes("moonshot")) return "kmodel";
   // GLM / Zhipu
-  if (lower.includes("glm")) return "gmodel";
+  if (lower.includes("glm")) return "gm51model";
   // MiniMax
   if (lower.includes("minimax")) return "mmodel";
 
