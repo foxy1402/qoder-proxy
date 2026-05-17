@@ -42,7 +42,7 @@ docker run -d \
 | `DASHBOARD_PASSWORD` | Password to access the web UI at `/dashboard/` | **Yes*** | Secret |
 | `PORT` | Container internal TCP port | No | Defaults to `3000` |
 | `DASHBOARD_ENABLED`| Set to `false` to disable the web UI | No | Defaults to `true` |
-| `CORS_ORIGIN` | Allowed domains for web clients calling the API | No | Defaults to `*` |
+| `CORS_ORIGIN` | Allowed origins for browser-based web clients (sets the `Access-Control-Allow-Origin` HTTP header). `*` = allow all domains. Set to a specific URL (e.g. `https://myapp.com`) to restrict access. Has no effect on server-to-server or CLI calls. | No | Defaults to `*` (allow all) |
 | `QODER_TIMEOUT_MS`| Maximum request timeout | No | Defaults to `120000` (2 min) |
 
 *\* Highly recommended when running on the public internet.*
