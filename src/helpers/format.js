@@ -60,22 +60,10 @@ const QODER_MODELS = [
     description: "Paid tier — high-performance model for demanding tasks.",
   },
   {
-    id: "qmodel",
+    id: "Qwen3.6-Plus",
     label: "Qwen3.6-Plus",
     tier: "new",
     description: "New model — Qwen 3.6 Plus (Alibaba).",
-  },
-  {
-    id: "dmodel",
-    label: "DeepSeek-V4-Pro",
-    tier: "new",
-    description: "New model — DeepSeek V4 Pro, reasoning-capable.",
-  },
-  {
-    id: "dfmodel",
-    label: "DeepSeek-V4-Flash",
-    tier: "new",
-    description: "New model — DeepSeek V4 Flash, fast and lightweight.",
   },
   {
     id: "lite",
@@ -91,12 +79,6 @@ const QODER_MODELS = [
   },
   // ── Quest scene models ────────────────────────────────────────────────────
   {
-    id: "gm51model",
-    label: "GLM-5.1",
-    tier: "new",
-    description: "New model — GLM-5.1 series (Zhipu AI), reasoning-capable.",
-  },
-  {
     id: "kmodel",
     label: "Kimi-K2.6",
     tier: "new",
@@ -107,6 +89,24 @@ const QODER_MODELS = [
     label: "MiniMax-M2.7",
     tier: "new",
     description: "New model — MiniMax-M2.7.",
+  },
+  {
+    id: "deepseek-v4-pro",
+    label: "deepseek-v4-pro",
+    tier: "new",
+    description: "New model — Deepseek-Pro series.",
+  },
+  {
+    id: "deepseek-v4-flash",
+    label: "deepseek-v4-flash",
+    tier: "new",
+    description: "New model — Deepseek-V4-Flash series.",
+  },
+  {
+    id: "glm-5.1",
+    label: "glm-5.1",
+    tier: "new",
+    description: "New model — GLM-5.1 series (Zhipu AI).",
   },
 ];
 
@@ -147,14 +147,19 @@ const ALIAS_MAP = {
   "gemini-pro": "performance",
   "gemini-flash": "efficient",
   // Friendly names for "new model" tier
-  qwen: "qmodel",
-  deepseek: "dmodel",
-  "deepseek-flash": "dfmodel",
-  "deepseek-v4": "dmodel",
-  "deepseek-v4-flash": "dfmodel",
-  glm: "gm51model",
+  // Short convenience aliases → full model IDs
+  qwen: "Qwen3.6-Plus",
+  deepseek: "deepseek-v4-pro",
+  "deepseek-flash": "deepseek-v4-flash",
+  "deepseek-v4": "deepseek-v4-pro",
+  "deepseek-v4-flash": "deepseek-v4-flash",
+  glm: "glm-5.1",
   kimi: "kmodel",
   minimax: "mmodel",
+  deepseekv4pro: "deepseek-v4-pro",
+  deepseekv4flash: "deepseek-v4-flash",
+  glm51: "glm-5.1",
+  qwen36plus: "Qwen3.6-Plus",
 };
 
 /**
@@ -203,18 +208,26 @@ const getModelMapping = (requestedModel) => {
     return "performance";
   }
   // Qwen family
-  if (lower.includes("qwen")) return "qmodel";
+  if (lower.includes("qwen")) return "Qwen3.6-Plus";
   // DeepSeek family
   if (lower.includes("deepseek")) {
-    if (lower.includes("flash")) return "dfmodel";
-    return "dmodel";
+    if (lower.includes("flash")) return "deepseek-v4-flash";
+    return "deepseek-v4-pro";
   }
   // Kimi / Moonshot
   if (lower.includes("kimi") || lower.includes("moonshot")) return "kmodel";
   // GLM / Zhipu
-  if (lower.includes("glm")) return "gm51model";
+  if (lower.includes("glm")) return "glm-5.1";
   // MiniMax
   if (lower.includes("minimax")) return "mmodel";
+
+  // Deepseek
+  if (lower.includes("deepseek-v4-pro")) return "deepseek-v4-pro";
+  if (lower.includes("deepseek-v4-flash")) return "deepseek-v4-flash";
+  // GLM / Zhipu
+  if (lower.includes("glm-5.1")) return "glm-5.1";
+  // Qwen family
+  if (lower.includes("qwen-3.6-plus")) return "Qwen3.6-Plus";
 
   // 4. Unknown model — warn and fall back to lite
   console.warn(
